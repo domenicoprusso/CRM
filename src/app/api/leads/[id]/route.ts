@@ -1,11 +1,31 @@
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
+import type { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
+import { getLeadDeleteState } from "@/lib/crm-delete";
 import { prisma } from "@/lib/prisma";
-import { leadSchema } from "@/lib/validators";
+import { leadUpdateSchema } from "@/lib/validators";
 
 type Context = { params: Promise<{ id: string }> };
+type LeadUpdateInput = z.infer<typeof leadUpdateSchema>;
+
+function toLeadData(parsed: LeadUpdateInput) {
+  return {
+    ...parsed,
+    estimatedValue: parsed.estimatedValue == null ? parsed.estimatedValue : new Prisma.Decimal(parsed.estimatedValue),
+  };
+}
+
+async function hasCompanyAccess(companyId: string | null | undefined, tenantId: string) {
+  if (!companyId) return true;
+  return Boolean(await prisma.company.findFirst({ where: { id: companyId, tenantId }, select: { id: true } }));
+}
+
+async function hasContactAccess(contactId: string | null | undefined, tenantId: string) {
+  if (!contactId) return true;
+  return Boolean(await prisma.contact.findFirst({ where: { id: contactId, tenantId }, select: { id: true } }));
+}
 
 export async function GET(_: Request, context: Context) {
   const user = await requireUser("lead:read");
@@ -20,9 +40,11 @@ export async function PATCH(request: Request, context: Context) {
   const { id } = await context.params;
   const before = await prisma.lead.findFirst({ where: { id, tenantId: user.tenantId } });
   if (!before) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
-  const parsed = leadSchema.partial().safeParse(await request.json());
+  const parsed = leadUpdateSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
-  const lead = await prisma.lead.update({ where: { id }, data: { ...parsed.data, estimatedValue: parsed.data.estimatedValue === undefined ? undefined : new Prisma.Decimal(parsed.data.estimatedValue) } });
+  if (!(await hasCompanyAccess(parsed.data.companyId, user.tenantId))) return NextResponse.json({ error: "Company not found" }, { status: 404 });
+  if (!(await hasContactAccess(parsed.data.contactId, user.tenantId))) return NextResponse.json({ error: "Contact not found" }, { status: 404 });
+  const lead = await prisma.lead.update({ where: { id }, data: toLeadData(parsed.data) });
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "UPDATE", entityType: "Lead", entityId: id, before, after: lead });
   return NextResponse.json({ data: lead });
 }
@@ -30,9 +52,14 @@ export async function PATCH(request: Request, context: Context) {
 export async function DELETE(_: Request, context: Context) {
   const user = await requireUser("lead:write");
   const { id } = await context.params;
-  const before = await prisma.lead.findFirst({ where: { id, tenantId: user.tenantId } });
-  if (!before) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
-  await prisma.lead.delete({ where: { id } });
-  await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "DELETE", entityType: "Lead", entityId: id, before });
+  const { record, blocker } = await getLeadDeleteState(user.tenantId, id);
+  if (!record) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+  if (blocker) return NextResponse.json({ error: blocker }, { status: 409 });
+  try {
+    await prisma.lead.delete({ where: { id } });
+  } catch {
+    return NextResponse.json({ error: "Lead could not be deleted" }, { status: 409 });
+  }
+  await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "DELETE", entityType: "Lead", entityId: id, before: record });
   return NextResponse.json({ ok: true });
 }

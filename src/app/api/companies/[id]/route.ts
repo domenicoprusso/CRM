@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
+import { getCompanyDeleteState } from "@/lib/crm-delete";
 import { prisma } from "@/lib/prisma";
-import { companySchema } from "@/lib/validators";
+import { companyUpdateSchema } from "@/lib/validators";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -19,7 +20,7 @@ export async function PATCH(request: Request, context: Context) {
   const { id } = await context.params;
   const before = await prisma.company.findFirst({ where: { id, tenantId: user.tenantId } });
   if (!before) return NextResponse.json({ error: "Company not found" }, { status: 404 });
-  const parsed = companySchema.partial().safeParse(await request.json());
+  const parsed = companyUpdateSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
   const company = await prisma.company.update({ where: { id }, data: parsed.data });
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "UPDATE", entityType: "Company", entityId: id, before, after: company });
@@ -29,9 +30,14 @@ export async function PATCH(request: Request, context: Context) {
 export async function DELETE(_: Request, context: Context) {
   const user = await requireUser("company:write");
   const { id } = await context.params;
-  const before = await prisma.company.findFirst({ where: { id, tenantId: user.tenantId } });
-  if (!before) return NextResponse.json({ error: "Company not found" }, { status: 404 });
-  await prisma.company.delete({ where: { id } });
-  await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "DELETE", entityType: "Company", entityId: id, before });
+  const { record, blocker } = await getCompanyDeleteState(user.tenantId, id);
+  if (!record) return NextResponse.json({ error: "Company not found" }, { status: 404 });
+  if (blocker) return NextResponse.json({ error: blocker }, { status: 409 });
+  try {
+    await prisma.company.delete({ where: { id } });
+  } catch {
+    return NextResponse.json({ error: "Company could not be deleted" }, { status: 409 });
+  }
+  await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "DELETE", entityType: "Company", entityId: id, before: record });
   return NextResponse.json({ ok: true });
 }

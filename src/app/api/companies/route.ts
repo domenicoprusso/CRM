@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
+import { buildCompanyWhere } from "@/lib/crm-filters";
 import { prisma } from "@/lib/prisma";
 import { companySchema } from "@/lib/validators";
 
-export async function GET() {
+export async function GET(request: Request) {
   const user = await requireUser("company:read");
-  const companies = await prisma.company.findMany({ where: { tenantId: user.tenantId }, orderBy: { updatedAt: "desc" } });
+  const params = Object.fromEntries(new URL(request.url).searchParams);
+  const companies = await prisma.company.findMany({ where: buildCompanyWhere(params, user), orderBy: { updatedAt: "desc" } });
   return NextResponse.json({ data: companies });
 }
 

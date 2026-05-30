@@ -1,0 +1,134 @@
+import { LeadStatus } from "@prisma/client";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { deleteLead, updateLead } from "../actions";
+import { Badge, ButtonLink, Card, DangerButton, FieldValue, Notice, PageHeader, SubmitButton } from "@/components/ui";
+import { requireUser } from "@/lib/auth";
+import { readParam, type SearchParamsInput } from "@/lib/crm-filters";
+import { prisma } from "@/lib/prisma";
+
+type PageProps = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<SearchParamsInput>;
+};
+
+function detailNotice(params: SearchParamsInput) {
+  if (readParam(params, "updated") === "1") return { tone: "success" as const, message: "Lead aggiornato." };
+  if (readParam(params, "error") === "confirm") return { tone: "error" as const, message: "Per eliminare devi scrivere ELIMINA nel campo di conferma." };
+  if (readParam(params, "error") === "delete-linked") return { tone: "error" as const, message: "Eliminazione bloccata: il lead ha record collegati." };
+  if (readParam(params, "error") === "delete-failed") return { tone: "error" as const, message: "Eliminazione non riuscita." };
+  if (readParam(params, "error") === "invalid-company") return { tone: "error" as const, message: "Azienda non valida per questo workspace." };
+  if (readParam(params, "error") === "invalid-contact") return { tone: "error" as const, message: "Contatto non valido per questo workspace." };
+  return { tone: "slate" as const, message: undefined };
+}
+
+function dateValue(date: Date | null) {
+  return date ? date.toISOString().slice(0, 10) : "";
+}
+
+export default async function LeadDetailPage({ params, searchParams }: PageProps) {
+  const user = await requireUser("lead:read");
+  const { id } = await params;
+  const query = await searchParams;
+  const notice = detailNotice(query);
+  const [lead, companies, contacts] = await Promise.all([
+    prisma.lead.findFirst({
+      where: { id, tenantId: user.tenantId },
+      include: {
+        company: true,
+        contact: true,
+        owner: true,
+        _count: { select: { activities: true, tasks: true, documents: true } },
+      },
+    }),
+    prisma.company.findMany({ where: { tenantId: user.tenantId }, orderBy: { name: "asc" } }),
+    prisma.contact.findMany({ where: { tenantId: user.tenantId }, orderBy: { lastName: "asc" } }),
+  ]);
+
+  if (!lead) notFound();
+
+  return (
+    <>
+      <PageHeader
+        title={lead.title}
+        description="Scheda lead con qualificazione, collegamenti e modifica controllata."
+        action={<ButtonLink href="/leads">Torna ai lead</ButtonLink>}
+      />
+      <Notice tone={notice.tone} message={notice.message} />
+      <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
+        <div className="space-y-6">
+          <Card>
+            <div className="grid gap-4 md:grid-cols-3">
+              <FieldValue label="Owner" value={lead.owner?.name ?? "N/D"} />
+              <FieldValue label="Stato" value={<Badge>{lead.status}</Badge>} />
+              <FieldValue label="Score" value={`${lead.score}/100`} />
+              <FieldValue label="Valore stimato" value={lead.estimatedValue ? `EUR ${lead.estimatedValue}` : "N/D"} />
+              <FieldValue label="Fonte" value={lead.source ?? "N/D"} />
+              <FieldValue label="Chiusura prevista" value={dateValue(lead.expectedCloseDate) || "N/D"} />
+              <FieldValue label="Azienda" value={lead.company ? <Link href={`/companies/${lead.company.id}`} className="text-brand-700 hover:text-brand-900">{lead.company.name}</Link> : "N/D"} />
+              <FieldValue label="Contatto" value={lead.contact ? <Link href={`/contacts/${lead.contact.id}`} className="text-brand-700 hover:text-brand-900">{lead.contact.firstName} {lead.contact.lastName}</Link> : "N/D"} />
+            </div>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {lead.tags.length === 0 ? <Badge tone="slate">Nessun tag</Badge> : lead.tags.map((tag) => <Badge key={tag}>{tag}</Badge>)}
+            </div>
+            {lead.notes ? <p className="mt-5 whitespace-pre-wrap text-sm text-slate-600">{lead.notes}</p> : null}
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          <Card>
+            <h3 className="text-lg font-semibold">Modifica lead</h3>
+            <form action={updateLead} className="mt-4 grid gap-3">
+              <input type="hidden" name="id" value={lead.id} />
+              <input name="title" defaultValue={lead.title} placeholder="Titolo lead" required />
+              <input name="source" defaultValue={lead.source ?? ""} placeholder="Fonte" />
+              <select name="status" defaultValue={lead.status}>
+                {Object.values(LeadStatus).map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+              <div className="grid gap-3 md:grid-cols-2">
+                <input name="score" type="number" min="0" max="100" defaultValue={lead.score} placeholder="Score" />
+                <input name="estimatedValue" type="number" min="0" step="0.01" defaultValue={lead.estimatedValue?.toString() ?? ""} placeholder="Valore stimato" />
+              </div>
+              <input name="expectedCloseDate" type="date" defaultValue={dateValue(lead.expectedCloseDate)} />
+              <select name="companyId" defaultValue={lead.companyId ?? ""}>
+                <option value="">Nessuna azienda</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
+                  </option>
+                ))}
+              </select>
+              <select name="contactId" defaultValue={lead.contactId ?? ""}>
+                <option value="">Nessun contatto</option>
+                {contacts.map((contact) => (
+                  <option key={contact.id} value={contact.id}>
+                    {contact.firstName} {contact.lastName}
+                  </option>
+                ))}
+              </select>
+              <input name="tags" defaultValue={lead.tags.join(", ")} placeholder="Tag separati da virgola" />
+              <textarea name="notes" defaultValue={lead.notes ?? ""} placeholder="Note interne" rows={4} />
+              <SubmitButton label="Salva modifiche" />
+            </form>
+          </Card>
+
+          <Card className="border-red-100">
+            <h3 className="text-lg font-semibold text-red-700">Elimina lead</h3>
+            <p className="mt-2 text-sm text-slate-500">
+              Disponibile solo senza record collegati. Collegamenti: attivita {lead._count.activities}, task {lead._count.tasks}, documenti {lead._count.documents}.
+            </p>
+            <form action={deleteLead} className="mt-4 grid gap-3">
+              <input type="hidden" name="id" value={lead.id} />
+              <input name="confirmDelete" placeholder="Scrivi ELIMINA" pattern="ELIMINA" required />
+              <DangerButton label="Elimina lead" />
+            </form>
+          </Card>
+        </div>
+      </div>
+    </>
+  );
+}

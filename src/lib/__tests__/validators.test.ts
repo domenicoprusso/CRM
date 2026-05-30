@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { companySchema, contactSchema, leadSchema, loginSchema } from "@/lib/validators";
+import { companySchema, contactSchema, contactUpdateSchema, leadSchema, leadUpdateSchema, loginSchema } from "@/lib/validators";
 
 describe("CRM validation schemas", () => {
   it("normalizes comma-separated tags for companies", () => {
@@ -25,7 +25,7 @@ describe("CRM validation schemas", () => {
 
   it("coerces lead score and estimated value from form input", () => {
     const parsed = leadSchema.parse({
-      title: "Nuova opportunità enterprise",
+      title: "Nuova opportunita enterprise",
       status: "QUALIFIED",
       score: "82",
       estimatedValue: "25000.50",
@@ -35,6 +35,28 @@ describe("CRM validation schemas", () => {
     expect(parsed.score).toBe(82);
     expect(parsed.estimatedValue).toBe(25000.5);
     expect(parsed.tags).toEqual(["priority"]);
+  });
+
+  it("normalizes cleared optional fields to null", () => {
+    const parsed = contactSchema.parse({
+      firstName: "Giulia",
+      lastName: "Rossi",
+      email: "",
+      companyId: "",
+      tags: "",
+    });
+
+    expect(parsed.email).toBeNull();
+    expect(parsed.companyId).toBeNull();
+    expect(parsed.tags).toEqual([]);
+  });
+
+  it("allows partial update payloads for contacts and leads", () => {
+    expect(contactUpdateSchema.parse({ lifecycle: "QUALIFIED" })).toEqual({ lifecycle: "QUALIFIED" });
+    expect(leadUpdateSchema.parse({ expectedCloseDate: "", estimatedValue: "" })).toEqual({
+      expectedCloseDate: null,
+      estimatedValue: null,
+    });
   });
 
   it("requires login passwords with at least eight characters", () => {

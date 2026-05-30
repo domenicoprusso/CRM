@@ -2,22 +2,89 @@
 
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import type { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
+import { getLeadDeleteState } from "@/lib/crm-delete";
 import { prisma } from "@/lib/prisma";
 import { leadSchema } from "@/lib/validators";
+
+type LeadInput = z.infer<typeof leadSchema>;
+
+function getId(formData: FormData) {
+  const id = formData.get("id");
+  return typeof id === "string" ? id : "";
+}
+
+function toLeadData(parsed: LeadInput) {
+  return {
+    ...parsed,
+    estimatedValue: parsed.estimatedValue == null ? parsed.estimatedValue : new Prisma.Decimal(parsed.estimatedValue),
+  };
+}
+
+async function assertCompanyAccess(companyId: string | null | undefined, tenantId: string, redirectTo: string) {
+  if (!companyId) return;
+  const company = await prisma.company.findFirst({ where: { id: companyId, tenantId }, select: { id: true } });
+  if (!company) redirect(`${redirectTo}?error=invalid-company`);
+}
+
+async function assertContactAccess(contactId: string | null | undefined, tenantId: string, redirectTo: string) {
+  if (!contactId) return;
+  const contact = await prisma.contact.findFirst({ where: { id: contactId, tenantId }, select: { id: true } });
+  if (!contact) redirect(`${redirectTo}?error=invalid-contact`);
+}
 
 export async function createLead(formData: FormData) {
   const user = await requireUser("lead:write");
   const parsed = leadSchema.parse(Object.fromEntries(formData));
+  await assertCompanyAccess(parsed.companyId, user.tenantId, "/leads");
+  await assertContactAccess(parsed.contactId, user.tenantId, "/leads");
   const lead = await prisma.lead.create({
     data: {
-      ...parsed,
-      estimatedValue: parsed.estimatedValue === undefined ? undefined : new Prisma.Decimal(parsed.estimatedValue),
+      ...toLeadData(parsed),
       tenantId: user.tenantId,
       ownerId: user.id,
     },
   });
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "CREATE", entityType: "Lead", entityId: lead.id, after: lead });
   revalidatePath("/leads");
+}
+
+export async function updateLead(formData: FormData) {
+  const user = await requireUser("lead:write");
+  const id = getId(formData);
+  const before = await prisma.lead.findFirst({ where: { id, tenantId: user.tenantId } });
+  if (!before) redirect("/leads?error=not-found");
+
+  const parsed = leadSchema.parse(Object.fromEntries(formData));
+  await assertCompanyAccess(parsed.companyId, user.tenantId, `/leads/${id}`);
+  await assertContactAccess(parsed.contactId, user.tenantId, `/leads/${id}`);
+  const lead = await prisma.lead.update({ where: { id }, data: toLeadData(parsed) });
+
+  await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "UPDATE", entityType: "Lead", entityId: id, before, after: lead });
+  revalidatePath("/leads");
+  revalidatePath(`/leads/${id}`);
+  redirect(`/leads/${id}?updated=1`);
+}
+
+export async function deleteLead(formData: FormData) {
+  const user = await requireUser("lead:write");
+  const id = getId(formData);
+  if (formData.get("confirmDelete") !== "ELIMINA") redirect(`/leads/${id}?error=confirm`);
+
+  const { record, blocker } = await getLeadDeleteState(user.tenantId, id);
+  if (!record) redirect("/leads?error=not-found");
+  if (blocker) redirect(`/leads/${id}?error=delete-linked`);
+
+  try {
+    await prisma.lead.delete({ where: { id } });
+  } catch {
+    redirect(`/leads/${id}?error=delete-failed`);
+  }
+
+  await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "DELETE", entityType: "Lead", entityId: id, before: record });
+  revalidatePath("/leads");
+  redirect("/leads?deleted=1");
 }

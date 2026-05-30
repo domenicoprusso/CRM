@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
+import { getContactDeleteState } from "@/lib/crm-delete";
 import { prisma } from "@/lib/prisma";
-import { contactSchema } from "@/lib/validators";
+import { contactUpdateSchema } from "@/lib/validators";
 
 type Context = { params: Promise<{ id: string }> };
+
+async function hasCompanyAccess(companyId: string | null | undefined, tenantId: string) {
+  if (!companyId) return true;
+  return Boolean(await prisma.company.findFirst({ where: { id: companyId, tenantId }, select: { id: true } }));
+}
 
 export async function GET(_: Request, context: Context) {
   const user = await requireUser("contact:read");
@@ -19,8 +25,9 @@ export async function PATCH(request: Request, context: Context) {
   const { id } = await context.params;
   const before = await prisma.contact.findFirst({ where: { id, tenantId: user.tenantId } });
   if (!before) return NextResponse.json({ error: "Contact not found" }, { status: 404 });
-  const parsed = contactSchema.partial().safeParse(await request.json());
+  const parsed = contactUpdateSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+  if (!(await hasCompanyAccess(parsed.data.companyId, user.tenantId))) return NextResponse.json({ error: "Company not found" }, { status: 404 });
   const contact = await prisma.contact.update({ where: { id }, data: parsed.data });
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "UPDATE", entityType: "Contact", entityId: id, before, after: contact });
   return NextResponse.json({ data: contact });
@@ -29,9 +36,14 @@ export async function PATCH(request: Request, context: Context) {
 export async function DELETE(_: Request, context: Context) {
   const user = await requireUser("contact:write");
   const { id } = await context.params;
-  const before = await prisma.contact.findFirst({ where: { id, tenantId: user.tenantId } });
-  if (!before) return NextResponse.json({ error: "Contact not found" }, { status: 404 });
-  await prisma.contact.delete({ where: { id } });
-  await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "DELETE", entityType: "Contact", entityId: id, before });
+  const { record, blocker } = await getContactDeleteState(user.tenantId, id);
+  if (!record) return NextResponse.json({ error: "Contact not found" }, { status: 404 });
+  if (blocker) return NextResponse.json({ error: blocker }, { status: 409 });
+  try {
+    await prisma.contact.delete({ where: { id } });
+  } catch {
+    return NextResponse.json({ error: "Contact could not be deleted" }, { status: 409 });
+  }
+  await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "DELETE", entityType: "Contact", entityId: id, before: record });
   return NextResponse.json({ ok: true });
 }
