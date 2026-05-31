@@ -12,6 +12,8 @@ export type Permission =
   | "opportunity:write"
   | "pipeline:read"
   | "pipeline:write"
+  | "reports:read"
+  | "reports:export"
   | "activity:read"
   | "activity:write"
   | "task:read"
@@ -32,6 +34,8 @@ const rolePermissions: Record<Role, Permission[]> = {
     "opportunity:write",
     "pipeline:read",
     "pipeline:write",
+    "reports:read",
+    "reports:export",
     "activity:read",
     "activity:write",
     "task:read",
@@ -51,6 +55,8 @@ const rolePermissions: Record<Role, Permission[]> = {
     "opportunity:write",
     "pipeline:read",
     "pipeline:write",
+    "reports:read",
+    "reports:export",
     "activity:read",
     "activity:write",
     "task:read",
@@ -68,6 +74,8 @@ const rolePermissions: Record<Role, Permission[]> = {
     "opportunity:read",
     "opportunity:write",
     "pipeline:read",
+    "reports:read",
+    "reports:export",
     "activity:read",
     "activity:write",
     "task:read",
@@ -81,12 +89,13 @@ const rolePermissions: Record<Role, Permission[]> = {
     "lead:read",
     "opportunity:read",
     "pipeline:read",
+    "reports:read",
     "activity:read",
     "activity:write",
     "task:read",
     "task:write",
   ],
-  VIEWER: ["dashboard:read", "company:read", "contact:read", "lead:read", "opportunity:read", "pipeline:read", "activity:read", "task:read"],
+  VIEWER: ["dashboard:read", "company:read", "contact:read", "lead:read", "opportunity:read", "pipeline:read", "reports:read", "activity:read", "task:read"],
 };
 
 export function can(role: Role, permission: Permission) {
