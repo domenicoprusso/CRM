@@ -8,6 +8,10 @@ export type Permission =
   | "contact:write"
   | "lead:read"
   | "lead:write"
+  | "opportunity:read"
+  | "opportunity:write"
+  | "pipeline:read"
+  | "pipeline:write"
   | "audit:read"
   | "user:manage";
 
@@ -20,6 +24,10 @@ const rolePermissions: Record<Role, Permission[]> = {
     "contact:write",
     "lead:read",
     "lead:write",
+    "opportunity:read",
+    "opportunity:write",
+    "pipeline:read",
+    "pipeline:write",
     "audit:read",
     "user:manage",
   ],
@@ -31,11 +39,26 @@ const rolePermissions: Record<Role, Permission[]> = {
     "contact:write",
     "lead:read",
     "lead:write",
+    "opportunity:read",
+    "opportunity:write",
+    "pipeline:read",
+    "pipeline:write",
     "audit:read",
   ],
-  SALES: ["dashboard:read", "company:read", "company:write", "contact:read", "contact:write", "lead:read", "lead:write"],
-  SUPPORT: ["dashboard:read", "company:read", "contact:read", "contact:write", "lead:read"],
-  VIEWER: ["dashboard:read", "company:read", "contact:read", "lead:read"],
+  SALES: [
+    "dashboard:read",
+    "company:read",
+    "company:write",
+    "contact:read",
+    "contact:write",
+    "lead:read",
+    "lead:write",
+    "opportunity:read",
+    "opportunity:write",
+    "pipeline:read",
+  ],
+  SUPPORT: ["dashboard:read", "company:read", "contact:read", "contact:write", "lead:read", "opportunity:read", "pipeline:read"],
+  VIEWER: ["dashboard:read", "company:read", "contact:read", "lead:read", "opportunity:read", "pipeline:read"],
 };
 
 export function can(role: Role, permission: Permission) {

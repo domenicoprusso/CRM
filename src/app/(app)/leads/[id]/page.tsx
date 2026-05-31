@@ -2,9 +2,11 @@ import { LeadStatus } from "@prisma/client";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteLead, updateLead } from "../actions";
+import { convertLeadToOpportunity } from "../../opportunities/actions";
 import { Badge, ButtonLink, Card, DangerButton, FieldValue, Notice, PageHeader, SubmitButton } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { readParam, type SearchParamsInput } from "@/lib/crm-filters";
+import { ensureDefaultPipelineStages } from "@/lib/pipeline";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = {
@@ -19,6 +21,7 @@ function detailNotice(params: SearchParamsInput) {
   if (readParam(params, "error") === "delete-failed") return { tone: "error" as const, message: "Eliminazione non riuscita." };
   if (readParam(params, "error") === "invalid-company") return { tone: "error" as const, message: "Azienda non valida per questo workspace." };
   if (readParam(params, "error") === "invalid-contact") return { tone: "error" as const, message: "Contatto non valido per questo workspace." };
+  if (readParam(params, "error") === "lost-lead") return { tone: "error" as const, message: "Un lead perso non puo essere convertito." };
   return { tone: "slate" as const, message: undefined };
 }
 
@@ -31,6 +34,7 @@ export default async function LeadDetailPage({ params, searchParams }: PageProps
   const { id } = await params;
   const query = await searchParams;
   const notice = detailNotice(query);
+  const stages = await ensureDefaultPipelineStages(user.tenantId);
   const [lead, companies, contacts] = await Promise.all([
     prisma.lead.findFirst({
       where: { id, tenantId: user.tenantId },
@@ -38,6 +42,7 @@ export default async function LeadDetailPage({ params, searchParams }: PageProps
         company: true,
         contact: true,
         owner: true,
+        sourceOpportunity: true,
         _count: { select: { activities: true, tasks: true, documents: true } },
       },
     }),
@@ -67,6 +72,7 @@ export default async function LeadDetailPage({ params, searchParams }: PageProps
               <FieldValue label="Chiusura prevista" value={dateValue(lead.expectedCloseDate) || "N/D"} />
               <FieldValue label="Azienda" value={lead.company ? <Link href={`/companies/${lead.company.id}`} className="text-brand-700 hover:text-brand-900">{lead.company.name}</Link> : "N/D"} />
               <FieldValue label="Contatto" value={lead.contact ? <Link href={`/contacts/${lead.contact.id}`} className="text-brand-700 hover:text-brand-900">{lead.contact.firstName} {lead.contact.lastName}</Link> : "N/D"} />
+              <FieldValue label="Opportunita" value={lead.sourceOpportunity ? <Link href={`/opportunities/${lead.sourceOpportunity.id}`} className="text-brand-700 hover:text-brand-900">{lead.sourceOpportunity.title}</Link> : "N/D"} />
             </div>
             <div className="mt-5 flex flex-wrap gap-2">
               {lead.tags.length === 0 ? <Badge tone="slate">Nessun tag</Badge> : lead.tags.map((tag) => <Badge key={tag}>{tag}</Badge>)}
@@ -115,6 +121,30 @@ export default async function LeadDetailPage({ params, searchParams }: PageProps
               <SubmitButton label="Salva modifiche" />
             </form>
           </Card>
+
+          {!lead.sourceOpportunity && lead.status !== "LOST" && lead.status !== "CONVERTED" ? (
+            <Card>
+              <h3 className="text-lg font-semibold">Converti in opportunita</h3>
+              <form action={convertLeadToOpportunity} className="mt-4 grid gap-3">
+                <input type="hidden" name="leadId" value={lead.id} />
+                <input name="title" defaultValue={lead.title} placeholder="Titolo opportunita" required />
+                <div className="grid gap-3 md:grid-cols-2">
+                  <input name="value" type="number" min="0" step="0.01" defaultValue={lead.estimatedValue?.toString() ?? "0"} placeholder="Valore" />
+                  <input name="probability" type="number" min="0" max="100" defaultValue={stages[0]?.probability ?? 20} placeholder="Probabilita" />
+                </div>
+                <input name="expectedCloseDate" type="date" defaultValue={dateValue(lead.expectedCloseDate)} />
+                <select name="stageId" defaultValue={stages[0]?.id ?? ""}>
+                  {stages.map((stage) => (
+                    <option key={stage.id} value={stage.id}>
+                      {stage.name}
+                    </option>
+                  ))}
+                </select>
+                <textarea name="notes" defaultValue={lead.notes ?? ""} placeholder="Note opportunita" rows={3} />
+                <SubmitButton label="Converti lead" />
+              </form>
+            </Card>
+          ) : null}
 
           <Card className="border-red-100">
             <h3 className="text-lg font-semibold text-red-700">Elimina lead</h3>

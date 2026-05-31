@@ -4,11 +4,13 @@ import { requireUser } from "@/lib/auth";
 
 export default async function DashboardPage() {
   const user = await requireUser("dashboard:read");
-  const [companies, contacts, leads, openLeads, overdueTasks, recentActivities] = await Promise.all([
+  const [companies, contacts, leads, openLeads, openOpportunities, pipelineValue, overdueTasks, recentActivities] = await Promise.all([
     prisma.company.count({ where: { tenantId: user.tenantId } }),
     prisma.contact.count({ where: { tenantId: user.tenantId } }),
     prisma.lead.count({ where: { tenantId: user.tenantId } }),
     prisma.lead.count({ where: { tenantId: user.tenantId, status: { in: ["NEW", "CONTACTED", "QUALIFIED", "NURTURING"] } } }),
+    prisma.opportunity.count({ where: { tenantId: user.tenantId, stage: { isWon: false, isLost: false } } }),
+    prisma.opportunity.aggregate({ where: { tenantId: user.tenantId, stage: { isWon: false, isLost: false } }, _sum: { value: true } }),
     prisma.task.count({ where: { tenantId: user.tenantId, status: { not: "DONE" }, dueAt: { lt: new Date() } } }),
     prisma.activity.findMany({ where: { tenantId: user.tenantId }, orderBy: { occurredAt: "desc" }, take: 6, include: { user: true } }),
   ]);
@@ -16,11 +18,13 @@ export default async function DashboardPage() {
   return (
     <>
       <PageHeader title="Dashboard" description="KPI operativi e segnali prioritari per coordinare sales, support e management." />
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-7">
         <StatCard label="Aziende" value={companies} hint="Account registrati" />
         <StatCard label="Contatti" value={contacts} hint="Persone in anagrafica" />
         <StatCard label="Lead totali" value={leads} hint="Acquisiti da ogni fonte" />
         <StatCard label="Lead aperti" value={openLeads} hint="Da lavorare in pipeline" />
+        <StatCard label="Opportunita aperte" value={openOpportunities} hint="Deal non chiusi" />
+        <StatCard label="Valore pipeline" value={`EUR ${pipelineValue._sum.value?.toString() ?? "0"}`} hint="Somma deal aperti" />
         <StatCard label="Follow-up scaduti" value={overdueTasks} hint="Richiedono attenzione" />
       </div>
       <div className="mt-6 grid gap-6 xl:grid-cols-3">

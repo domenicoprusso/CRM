@@ -72,6 +72,7 @@ export async function getLeadDeleteState(tenantId: string, id: string) {
   const record = await prisma.lead.findFirst({
     where: { id, tenantId },
     include: {
+      sourceOpportunity: { select: { id: true } },
       _count: {
         select: {
           activities: true,
@@ -89,6 +90,7 @@ export async function getLeadDeleteState(tenantId: string, id: string) {
           { label: "attivita", count: record._count.activities },
           { label: "task", count: record._count.tasks },
           { label: "documenti", count: record._count.documents },
+          { label: "opportunita convertita", count: record.sourceOpportunity ? 1 : 0 },
         ])
       : undefined,
   };

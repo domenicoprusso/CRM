@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2, LayoutDashboard, LogOut, Target, UsersRound } from "lucide-react";
+import { BadgeDollarSign, Building2, KanbanSquare, LayoutDashboard, LogOut, Target, UsersRound } from "lucide-react";
 import type { Role } from "@prisma/client";
 
 const navigation = [
@@ -7,6 +7,8 @@ const navigation = [
   { href: "/companies", label: "Aziende", icon: Building2 },
   { href: "/contacts", label: "Contatti", icon: UsersRound },
   { href: "/leads", label: "Lead", icon: Target },
+  { href: "/opportunities", label: "Opportunita", icon: BadgeDollarSign },
+  { href: "/pipeline", label: "Pipeline", icon: KanbanSquare },
 ];
 
 export function AppShell({ children, user }: { children: React.ReactNode; user: { name: string; email: string; role: Role } }) {

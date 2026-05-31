@@ -57,9 +57,9 @@ async function main() {
     },
   });
 
-  await prisma.lead.upsert({
+  const lead = await prisma.lead.upsert({
     where: { id: "seed-lead-erp" },
-    update: {},
+    update: { status: "CONVERTED" },
     create: {
       id: "seed-lead-erp",
       tenantId: tenant.id,
@@ -68,10 +68,47 @@ async function main() {
       contactId: contact.id,
       title: "Migrazione CRM e automazione follow-up",
       source: "Referral",
-      status: "QUALIFIED",
       score: 82,
       estimatedValue: "25000.00",
       tags: ["hot", "migration"],
+      status: "CONVERTED",
+    },
+  });
+
+  const stages = [
+    { id: "seed-stage-qualifica", name: "Qualifica", order: 10, probability: 20, color: "#2563eb", isWon: false, isLost: false },
+    { id: "seed-stage-proposta", name: "Proposta", order: 20, probability: 50, color: "#7c3aed", isWon: false, isLost: false },
+    { id: "seed-stage-negoziazione", name: "Negoziazione", order: 30, probability: 75, color: "#d97706", isWon: false, isLost: false },
+    { id: "seed-stage-vinta", name: "Vinta", order: 40, probability: 100, color: "#059669", isWon: true, isLost: false },
+    { id: "seed-stage-persa", name: "Persa", order: 50, probability: 0, color: "#dc2626", isWon: false, isLost: true },
+  ];
+
+  const pipelineStages = [];
+  for (const stage of stages) {
+    pipelineStages.push(await prisma.pipelineStage.upsert({
+      where: { tenantId_order: { tenantId: tenant.id, order: stage.order } },
+      update: {},
+      create: { ...stage, tenantId: tenant.id },
+    }));
+  }
+  const proposalStage = pipelineStages.find((stage) => stage.order === 20) ?? pipelineStages[0];
+
+  await prisma.opportunity.upsert({
+    where: { id: "seed-opportunity-erp" },
+    update: {},
+    create: {
+      id: "seed-opportunity-erp",
+      tenantId: tenant.id,
+      ownerId: admin.id,
+      companyId: acme.id,
+      contactId: contact.id,
+      sourceLeadId: lead.id,
+      stageId: proposalStage.id,
+      title: "Migrazione CRM e automazione follow-up",
+      value: "25000.00",
+      probability: 50,
+      expectedCloseDate: new Date("2026-07-31"),
+      notes: "Opportunita demo generata dal lead seed.",
     },
   });
 }

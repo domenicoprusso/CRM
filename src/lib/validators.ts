@@ -65,6 +65,30 @@ export const leadSchema = z.object({
 
 export const leadUpdateSchema = leadSchema.partial();
 
+export const opportunitySchema = z.object({
+  title: z.string().trim().min(2, "Il titolo opportunita e obbligatorio"),
+  stageId: optionalRelationId,
+  value: z.coerce.number().nonnegative().default(0),
+  probability: z.coerce.number().int().min(0).max(100).default(10),
+  expectedCloseDate: optionalDate,
+  companyId: optionalRelationId,
+  contactId: optionalRelationId,
+  sourceLeadId: optionalRelationId,
+  notes: optionalString,
+});
+
+export const opportunityUpdateSchema = opportunitySchema.partial();
+
+export const leadConversionSchema = z.object({
+  leadId: z.string().min(1),
+  title: z.string().trim().min(2, "Il titolo opportunita e obbligatorio"),
+  stageId: optionalRelationId,
+  value: z.preprocess((value) => (value === "" || value === null ? 0 : value), z.coerce.number().nonnegative()),
+  probability: z.coerce.number().int().min(0).max(100).default(10),
+  expectedCloseDate: optionalDate,
+  notes: optionalString,
+});
+
 export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),

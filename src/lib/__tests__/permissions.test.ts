@@ -22,4 +22,18 @@ describe("RBAC permissions", () => {
     expect(can("MANAGER", "user:manage")).toBe(false);
     expect(can("SALES", "user:manage")).toBe(false);
   });
+
+  it("allows sales to manage opportunities but keeps pipeline configuration restricted", () => {
+    expect(can("SALES", "opportunity:read")).toBe(true);
+    expect(can("SALES", "opportunity:write")).toBe(true);
+    expect(can("SALES", "pipeline:read")).toBe(true);
+    expect(can("SALES", "pipeline:write")).toBe(false);
+  });
+
+  it("keeps support and viewer roles read-only for opportunities", () => {
+    expect(can("SUPPORT", "opportunity:read")).toBe(true);
+    expect(can("SUPPORT", "opportunity:write")).toBe(false);
+    expect(can("VIEWER", "opportunity:read")).toBe(true);
+    expect(can("VIEWER", "opportunity:write")).toBe(false);
+  });
 });

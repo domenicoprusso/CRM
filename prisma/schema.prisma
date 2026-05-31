@@ -72,16 +72,16 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users         User[]
-  companies     Company[]
-  contacts      Contact[]
-  leads         Lead[]
-  opportunities Opportunity[]
+  users          User[]
+  companies      Company[]
+  contacts       Contact[]
+  leads          Lead[]
+  opportunities  Opportunity[]
   pipelineStages PipelineStage[]
-  tasks         Task[]
-  documents     Document[]
-  importJobs    ImportJob[]
-  auditLogs     AuditLog[]
+  tasks          Task[]
+  documents      Document[]
+  importJobs     ImportJob[]
+  auditLogs      AuditLog[]
 }
 
 model User {
@@ -96,101 +96,102 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  ownedContacts Contact[] @relation("ContactOwner")
-  ownedCompanies Company[] @relation("CompanyOwner")
-  ownedLeads    Lead[]    @relation("LeadOwner")
-  opportunities Opportunity[] @relation("OpportunityOwner")
-  tasks         Task[]    @relation("TaskOwner")
-  activities    Activity[]
-  auditLogs     AuditLog[]
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ownedContacts  Contact[]       @relation("ContactOwner")
+  ownedCompanies Company[]       @relation("CompanyOwner")
+  ownedLeads     Lead[]          @relation("LeadOwner")
+  opportunities  Opportunity[]   @relation("OpportunityOwner")
+  tasks          Task[]          @relation("TaskOwner")
+  activities     Activity[]
+  auditLogs      AuditLog[]
   aiInteractions AiInteraction[]
 
   @@index([tenantId, role])
 }
 
 model Company {
-  id          String   @id @default(cuid())
-  tenantId    String
-  ownerId     String?
-  name        String
-  industry    String?
-  website     String?
-  phone       String?
-  email       String?
-  address     String?
-  city        String?
-  country     String?
-  tags        String[] @default([])
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  tenantId  String
+  ownerId   String?
+  name      String
+  industry  String?
+  website   String?
+  phone     String?
+  email     String?
+  address   String?
+  city      String?
+  country   String?
+  tags      String[] @default([])
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  owner       User?    @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  contacts    Contact[]
-  leads       Lead[]
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  owner         User?         @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  contacts      Contact[]
+  leads         Lead[]
   opportunities Opportunity[]
-  activities  Activity[]
-  documents   Document[]
+  activities    Activity[]
+  documents     Document[]
 
   @@index([tenantId, name])
 }
 
 model Contact {
-  id          String   @id @default(cuid())
-  tenantId    String
-  ownerId     String?
-  companyId   String?
-  firstName   String
-  lastName    String
-  email       String?
-  phone       String?
-  jobTitle    String?
-  lifecycle   LeadStatus @default(NEW)
-  tags        String[] @default([])
-  notes       String?
+  id              String     @id @default(cuid())
+  tenantId        String
+  ownerId         String?
+  companyId       String?
+  firstName       String
+  lastName        String
+  email           String?
+  phone           String?
+  jobTitle        String?
+  lifecycle       LeadStatus @default(NEW)
+  tags            String[]   @default([])
+  notes           String?
   lastContactedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  owner       User?    @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  company     Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  leads       Lead[]
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  owner         User?         @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  company       Company?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  leads         Lead[]
   opportunities Opportunity[]
-  activities  Activity[]
-  tasks       Task[]
-  documents   Document[]
+  activities    Activity[]
+  tasks         Task[]
+  documents     Document[]
 
   @@index([tenantId, email])
   @@index([tenantId, lastName, firstName])
 }
 
 model Lead {
-  id          String     @id @default(cuid())
-  tenantId    String
-  ownerId     String?
-  companyId   String?
-  contactId   String?
-  title       String
-  source      String?
-  status      LeadStatus @default(NEW)
-  score       Int        @default(0)
-  estimatedValue Decimal? @db.Decimal(12, 2)
+  id                String     @id @default(cuid())
+  tenantId          String
+  ownerId           String?
+  companyId         String?
+  contactId         String?
+  title             String
+  source            String?
+  status            LeadStatus @default(NEW)
+  score             Int        @default(0)
+  estimatedValue    Decimal?   @db.Decimal(12, 2)
   expectedCloseDate DateTime?
-  tags        String[]   @default([])
-  notes       String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  tags              String[]   @default([])
+  notes             String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
 
-  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  owner       User?      @relation("LeadOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  company     Company?   @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  contact     Contact?   @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  activities  Activity[]
-  tasks       Task[]
-  documents   Document[]
+  tenant            Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  owner             User?        @relation("LeadOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  company           Company?     @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  contact           Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  activities        Activity[]
+  tasks             Task[]
+  documents         Document[]
+  sourceOpportunity Opportunity? @relation("OpportunitySourceLead")
 
   @@index([tenantId, status])
   @@index([tenantId, score])
@@ -208,35 +209,37 @@ model PipelineStage {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   opportunities Opportunity[]
 
   @@unique([tenantId, order])
 }
 
 model Opportunity {
-  id          String   @id @default(cuid())
-  tenantId    String
-  ownerId     String?
-  companyId   String?
-  contactId   String?
-  stageId     String
-  title       String
-  value       Decimal  @db.Decimal(12, 2)
-  probability Int
+  id                String    @id @default(cuid())
+  tenantId          String
+  ownerId           String?
+  companyId         String?
+  contactId         String?
+  sourceLeadId      String?   @unique
+  stageId           String
+  title             String
+  value             Decimal   @db.Decimal(12, 2)
+  probability       Int
   expectedCloseDate DateTime?
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  owner       User?    @relation("OpportunityOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  company     Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  contact     Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  stage       PipelineStage @relation(fields: [stageId], references: [id])
-  activities  Activity[]
-  tasks       Task[]
-  documents   Document[]
+  tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  owner      User?         @relation("OpportunityOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  company    Company?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  contact    Contact?      @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  sourceLead Lead?         @relation("OpportunitySourceLead", fields: [sourceLeadId], references: [id], onDelete: SetNull)
+  stage      PipelineStage @relation(fields: [stageId], references: [id])
+  activities Activity[]
+  tasks      Task[]
+  documents  Document[]
 
   @@index([tenantId, stageId])
   @@index([tenantId, expectedCloseDate])
@@ -256,11 +259,11 @@ model Activity {
   occurredAt    DateTime     @default(now())
   createdAt     DateTime     @default(now())
 
-  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  company       Company?     @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  contact       Contact?     @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  lead          Lead?        @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company     Company?     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact     Contact?     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  lead        Lead?        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  opportunity Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, occurredAt])
 }
@@ -281,108 +284,108 @@ model Task {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  owner         User         @relation("TaskOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  contact       Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  lead          Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  owner       User         @relation("TaskOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  contact     Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  lead        Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  opportunity Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, dueAt])
   @@index([ownerId, status])
 }
 
 model Document {
-  id          String   @id @default(cuid())
-  tenantId    String
-  companyId   String?
-  contactId   String?
-  leadId      String?
+  id            String             @id @default(cuid())
+  tenantId      String
+  companyId     String?
+  contactId     String?
+  leadId        String?
   opportunityId String?
-  entityType  DocumentEntityType
-  fileName    String
-  mimeType    String
-  sizeBytes   Int
-  storageKey  String
-  category    String?
+  entityType    DocumentEntityType
+  fileName      String
+  mimeType      String
+  sizeBytes     Int
+  storageKey    String
+  category      String?
   extractedText String?
-  aiSummary   String?
-  createdAt   DateTime @default(now())
+  aiSummary     String?
+  createdAt     DateTime           @default(now())
 
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  company     Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  contact     Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  lead        Lead?    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company     Company?     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact     Contact?     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  lead        Lead?        @relation(fields: [leadId], references: [id], onDelete: Cascade)
   opportunity Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, entityType])
 }
 
 model ImportJob {
-  id          String       @id @default(cuid())
-  tenantId    String
-  createdById String
-  source      String
-  fileName    String
-  status      ImportStatus @default(UPLOADED)
-  fieldMapping Json?
+  id              String       @id @default(cuid())
+  tenantId        String
+  createdById     String
+  source          String
+  fileName        String
+  status          ImportStatus @default(UPLOADED)
+  fieldMapping    Json?
   duplicateReport Json?
-  rowsTotal   Int          @default(0)
-  rowsImported Int         @default(0)
-  rollbackToken String?
-  errorLog    Json?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  rowsTotal       Int          @default(0)
+  rowsImported    Int          @default(0)
+  rollbackToken   String?
+  errorLog        Json?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
-  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  rows        ImportRow[]
+  tenant Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rows   ImportRow[]
 
   @@index([tenantId, status])
 }
 
 model ImportRow {
-  id          String   @id @default(cuid())
-  importJobId String
-  rowNumber   Int
-  rawData     Json
-  normalizedData Json?
-  importedEntity String?
+  id               String   @id @default(cuid())
+  importJobId      String
+  rowNumber        Int
+  rawData          Json
+  normalizedData   Json?
+  importedEntity   String?
   importedEntityId String?
-  errors      Json?
-  createdAt   DateTime @default(now())
+  errors           Json?
+  createdAt        DateTime @default(now())
 
-  importJob   ImportJob @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  importJob ImportJob @relation(fields: [importJobId], references: [id], onDelete: Cascade)
 }
 
 model AiInteraction {
-  id          String   @id @default(cuid())
-  userId      String
-  tenantId    String
-  action      String
-  prompt      String
-  response    String?
-  metadata    Json?
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  userId    String
+  tenantId  String
+  action    String
+  prompt    String
+  response  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
 
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, action])
 }
 
 model AuditLog {
-  id          String   @id @default(cuid())
-  tenantId    String
-  userId      String?
-  action      String
-  entityType  String
-  entityId    String?
-  ipAddress   String?
-  userAgent   String?
-  before      Json?
-  after       Json?
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  tenantId   String
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  ipAddress  String?
+  userAgent  String?
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now())
 
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, createdAt])
 }
