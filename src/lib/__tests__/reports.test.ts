@@ -10,6 +10,15 @@ describe("report helpers", () => {
     expect(filters.from.getMonth()).toBe(4);
     expect(filters.from.getDate()).toBe(1);
     expect(filters.ownerId).toBeUndefined();
+    expect(filters.tag).toEqual([]);
+    expect(filters.project).toEqual([]);
+  });
+
+  it("parses report tag and project filters", () => {
+    const filters = parseReportFilters({ tag: "Scuole;PNRR", project: "Scuole Roma" }, new Date("2026-05-31T10:00:00Z"));
+
+    expect(filters.tag).toEqual(["Scuole", "PNRR"]);
+    expect(filters.project).toEqual(["project:scuole-roma"]);
   });
 
   it("builds pipeline and forecast rows", () => {

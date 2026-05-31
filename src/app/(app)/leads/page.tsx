@@ -70,7 +70,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         </Card>
         <div className="space-y-6">
           <Card>
-            <form className="grid gap-3 xl:grid-cols-[1fr_150px_180px_120px_150px_auto_auto] xl:items-end">
+            <form className="grid gap-3 xl:grid-cols-[1fr_150px_180px_120px_150px_150px_150px_auto_auto] xl:items-end">
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Cerca
                 <input name="q" defaultValue={filters.q ?? ""} placeholder="Titolo, fonte, azienda..." />
@@ -100,6 +100,14 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Score min.
                 <input name="scoreMin" type="number" min="0" max="100" defaultValue={filters.scoreMin ?? ""} />
+              </label>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Tag
+                <input name="tag" defaultValue={readParam(params, "tag") ?? ""} placeholder="Scuole" />
+              </label>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Progetto
+                <input name="project" defaultValue={readParam(params, "project") ?? ""} placeholder="Scuole Roma" />
               </label>
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Vista

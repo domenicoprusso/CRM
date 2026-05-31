@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { readParam, type SearchParamsInput } from "@/lib/crm-filters";
+import { buildCompanyWhere, buildContactWhere, buildLeadWhere } from "@/lib/crm-filters";
+import { buildOpportunityWhere } from "@/lib/opportunity-filters";
 import { getReportSnapshot, parseReportFilters, toCsv } from "@/lib/reports";
 import { prisma } from "@/lib/prisma";
 
@@ -37,11 +39,10 @@ export async function GET(request: Request) {
       ],
     );
   } else if (entity === "opportunities") {
+    const where = buildOpportunityWhere(params, user);
+    if (filters.ownerId) where.ownerId = filters.ownerId;
     const opportunities = await prisma.opportunity.findMany({
-      where: {
-        tenantId: user.tenantId,
-        ...(filters.ownerId ? { ownerId: filters.ownerId } : {}),
-      },
+      where,
       include: { owner: true, company: true, contact: true, stage: true, sourceLead: true },
       orderBy: { updatedAt: "desc" },
     });
@@ -61,11 +62,10 @@ export async function GET(request: Request) {
       })),
     );
   } else if (entity === "leads") {
+    const where = buildLeadWhere(params, user);
+    if (filters.ownerId) where.ownerId = filters.ownerId;
     const leads = await prisma.lead.findMany({
-      where: {
-        tenantId: user.tenantId,
-        ...(filters.ownerId ? { ownerId: filters.ownerId } : {}),
-      },
+      where,
       include: { owner: true, company: true, contact: true },
       orderBy: { createdAt: "desc" },
     });
@@ -85,11 +85,10 @@ export async function GET(request: Request) {
       })),
     );
   } else if (entity === "contacts") {
+    const where = buildContactWhere(params, user);
+    if (filters.ownerId) where.ownerId = filters.ownerId;
     const contacts = await prisma.contact.findMany({
-      where: {
-        tenantId: user.tenantId,
-        ...(filters.ownerId ? { ownerId: filters.ownerId } : {}),
-      },
+      where,
       include: { owner: true, company: true },
       orderBy: { lastName: "asc" },
     });
@@ -108,11 +107,10 @@ export async function GET(request: Request) {
       })),
     );
   } else if (entity === "companies") {
+    const where = buildCompanyWhere(params, user);
+    if (filters.ownerId) where.ownerId = filters.ownerId;
     const companies = await prisma.company.findMany({
-      where: {
-        tenantId: user.tenantId,
-        ...(filters.ownerId ? { ownerId: filters.ownerId } : {}),
-      },
+      where,
       include: { owner: true },
       orderBy: { name: "asc" },
     });

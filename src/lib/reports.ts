@@ -1,4 +1,6 @@
+import { Prisma, TaskStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { normalizeTagList, projectTagsFromValue } from "@/lib/tagging";
 import { readParam, type SearchParamsInput } from "@/lib/crm-filters";
 
 type DecimalLike = { toString(): string };
@@ -7,6 +9,8 @@ export type ReportFilters = {
   from: Date;
   to: Date;
   ownerId?: string;
+  tag: string[];
+  project: string[];
 };
 
 export type PipelineStageReportRow = {
@@ -78,7 +82,7 @@ export type ReportSnapshot = {
 };
 
 const money = (value: DecimalLike | number | null | undefined) => Number(value ? value.toString() : 0);
-const notCompletedStatuses: Array<"DONE" | "CANCELLED"> = ["DONE", "CANCELLED"];
+const notCompletedStatuses: TaskStatus[] = [TaskStatus.DONE, TaskStatus.CANCELLED];
 function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
@@ -101,11 +105,70 @@ export function parseReportFilters(params: SearchParamsInput, now = new Date()):
   const from = parseDate(readParam(params, "from")) ?? startOfMonth(now);
   const toRaw = parseDate(readParam(params, "to"));
   const to = toRaw ? endExclusiveForDate(toRaw) : now;
-  return { from: startOfDay(from), to, ownerId: readParam(params, "ownerId") };
+  return {
+    from: startOfDay(from),
+    to,
+    ownerId: readParam(params, "ownerId"),
+    tag: normalizeTagList(readParam(params, "tag")),
+    project: projectTagsFromValue(readParam(params, "project")),
+  };
 }
 
 export function buildDateRangeWhere(field: "createdAt" | "updatedAt" | "occurredAt" | "dueAt", from: Date, to: Date): Record<string, { gte: Date; lt: Date }> {
   return { [field]: { gte: from, lt: to } } as Record<string, { gte: Date; lt: Date }>;
+}
+
+function tagValues(period: ReportFilters) {
+  return [...period.tag, ...period.project];
+}
+
+function withAndClause<T extends object>(where: T, clause: unknown) {
+  return (clause ? { ...where, AND: [...((where as { AND?: unknown[] }).AND ?? []), clause] } : where) as T;
+}
+
+function leadTagClause(tags: string[]) {
+  return tags.length > 0
+    ? {
+        OR: [
+          { tags: { hasSome: tags } },
+          { company: { is: { tags: { hasSome: tags } } } },
+          { contact: { is: { tags: { hasSome: tags } } } },
+        ],
+      }
+    : null;
+}
+
+function opportunityTagClause(tags: string[]) {
+  return tags.length > 0
+    ? {
+        OR: [
+          { company: { is: { tags: { hasSome: tags } } } },
+          { contact: { is: { tags: { hasSome: tags } } } },
+          { sourceLead: { is: { tags: { hasSome: tags } } } },
+          { sourceLead: { is: { company: { is: { tags: { hasSome: tags } } } } } },
+        ],
+      }
+    : null;
+}
+
+function taskTagClause(tags: string[]) {
+  return tags.length > 0
+    ? {
+        OR: [
+          { company: { is: { tags: { hasSome: tags } } } },
+          { contact: { is: { tags: { hasSome: tags } } } },
+          { lead: { is: { tags: { hasSome: tags } } } },
+          { opportunity: { is: { company: { is: { tags: { hasSome: tags } } } } } },
+          { opportunity: { is: { contact: { is: { tags: { hasSome: tags } } } } } },
+          { opportunity: { is: { sourceLead: { is: { tags: { hasSome: tags } } } } } },
+          { opportunity: { is: { sourceLead: { is: { company: { is: { tags: { hasSome: tags } } } } } } } },
+        ],
+      }
+    : null;
+}
+
+function activityTagClause(tags: string[]) {
+  return taskTagClause(tags);
 }
 
 export function buildPipelineRows(
@@ -202,17 +265,22 @@ export function toCsv(headers: string[], rows: Array<Record<string, unknown>>) {
 }
 
 export async function getReportSnapshot(prismaClient: typeof prisma, tenantId: string, filters: ReportFilters): Promise<ReportSnapshot> {
-  const periodWhere = {
+  const tags = tagValues(filters);
+  const leadTag = leadTagClause(tags);
+  const opportunityTag = opportunityTagClause(tags);
+  const taskTag = taskTagClause(tags);
+  const activityTag = activityTagClause(tags);
+  const periodWhere: Prisma.LeadWhereInput = {
     tenantId,
     createdAt: { gte: filters.from, lt: filters.to },
     ...(filters.ownerId ? { ownerId: filters.ownerId } : {}),
   };
-  const activityPeriodWhere = {
+  const activityPeriodWhere: Prisma.ActivityWhereInput = {
     tenantId,
     occurredAt: { gte: filters.from, lt: filters.to },
     ...(filters.ownerId ? { userId: filters.ownerId } : {}),
   };
-  const taskOverdueWhere = {
+  const taskOverdueWhere: Prisma.TaskWhereInput = {
     tenantId,
     dueAt: { lt: new Date() },
     status: { notIn: notCompletedStatuses },
@@ -223,28 +291,37 @@ export async function getReportSnapshot(prismaClient: typeof prisma, tenantId: s
   const [users, stages, leadsCreated, convertedOpps, closedWon, closedLost, openOpps, noActionOpps, activitiesByOwner, overdueTasksByOwnerRaw] = await Promise.all([
     prismaClient.user.findMany({ where: { tenantId, isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prismaClient.pipelineStage.findMany({ where: { tenantId }, orderBy: { order: "asc" } }),
-    prismaClient.lead.count({ where: periodWhere }),
-    prismaClient.opportunity.count({ where: { tenantId, createdAt: { gte: filters.from, lt: filters.to }, sourceLeadId: { not: null }, ...opportunityOwnerWhere } }),
-    prismaClient.opportunity.count({ where: { tenantId, updatedAt: { gte: filters.from, lt: filters.to }, stage: { isWon: true }, ...opportunityOwnerWhere } }),
-    prismaClient.opportunity.count({ where: { tenantId, updatedAt: { gte: filters.from, lt: filters.to }, stage: { isLost: true }, ...opportunityOwnerWhere } }),
+    prismaClient.lead.count({ where: leadTag ? (withAndClause(periodWhere, leadTag) as Prisma.LeadWhereInput) : periodWhere }),
+    prismaClient.opportunity.count({
+      where: withAndClause({ tenantId, createdAt: { gte: filters.from, lt: filters.to }, sourceLeadId: { not: null }, ...opportunityOwnerWhere } as Prisma.OpportunityWhereInput, opportunityTag) as Prisma.OpportunityWhereInput,
+    }),
+    prismaClient.opportunity.count({
+      where: withAndClause({ tenantId, updatedAt: { gte: filters.from, lt: filters.to }, stage: { isWon: true }, ...opportunityOwnerWhere } as Prisma.OpportunityWhereInput, opportunityTag) as Prisma.OpportunityWhereInput,
+    }),
+    prismaClient.opportunity.count({
+      where: withAndClause({ tenantId, updatedAt: { gte: filters.from, lt: filters.to }, stage: { isLost: true }, ...opportunityOwnerWhere } as Prisma.OpportunityWhereInput, opportunityTag) as Prisma.OpportunityWhereInput,
+    }),
     prismaClient.opportunity.findMany({
-      where: { tenantId, stage: { isWon: false, isLost: false }, ...opportunityOwnerWhere },
+      where: withAndClause({ tenantId, stage: { isWon: false, isLost: false }, ...opportunityOwnerWhere } as Prisma.OpportunityWhereInput, opportunityTag) as Prisma.OpportunityWhereInput,
       include: { owner: { select: { id: true, name: true } }, stage: true, company: { select: { id: true, name: true } } },
       orderBy: [{ updatedAt: "desc" }],
     }),
     prismaClient.opportunity.findMany({
-      where: { tenantId, stage: { isWon: false, isLost: false }, tasks: { none: { status: { notIn: ["DONE", "CANCELLED"] } } }, ...opportunityOwnerWhere },
+      where: withAndClause(
+        { tenantId, stage: { isWon: false, isLost: false }, tasks: { none: { status: { notIn: notCompletedStatuses } } }, ...opportunityOwnerWhere } as Prisma.OpportunityWhereInput,
+        opportunityTag,
+      ) as Prisma.OpportunityWhereInput,
       include: { owner: { select: { id: true, name: true } }, stage: true, company: { select: { id: true, name: true } } },
       orderBy: [{ updatedAt: "desc" }],
     }),
     prismaClient.activity.groupBy({
       by: ["userId"],
-      where: activityPeriodWhere,
+      where: activityTag ? (withAndClause(activityPeriodWhere, activityTag) as Prisma.ActivityWhereInput) : activityPeriodWhere,
       _count: { _all: true },
     }),
     prismaClient.task.groupBy({
       by: ["ownerId"],
-      where: taskOverdueWhere,
+      where: taskTag ? (withAndClause(taskOverdueWhere, taskTag) as Prisma.TaskWhereInput) : taskOverdueWhere,
       _count: { _all: true },
     }),
   ]);

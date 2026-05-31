@@ -60,7 +60,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
         </Card>
         <div className="space-y-6">
           <Card>
-            <form className="grid gap-3 lg:grid-cols-[1fr_170px_180px_150px_auto_auto] lg:items-end">
+            <form className="grid gap-3 lg:grid-cols-[1fr_170px_180px_160px_160px_150px_auto_auto] lg:items-end">
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Cerca
                 <input name="q" defaultValue={filters.q ?? ""} placeholder="Nome, email, azienda..." />
@@ -86,6 +86,14 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
                     </option>
                   ))}
                 </select>
+              </label>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Tag
+                <input name="tag" defaultValue={readParam(params, "tag") ?? ""} placeholder="Scuole" />
+              </label>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Progetto
+                <input name="project" defaultValue={readParam(params, "project") ?? ""} placeholder="Scuole Roma" />
               </label>
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Vista

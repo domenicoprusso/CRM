@@ -1,9 +1,13 @@
 import { ActivityType, TaskPriority, TaskStatus, type Prisma, type PrismaClient } from "@prisma/client";
 import { readParam, type SearchParamsInput } from "@/lib/crm-filters";
+import { normalizeTagList, projectTagsFromValue } from "@/lib/tagging";
 
 type CurrentUser = { id: string; tenantId: string };
 
 const contains = (value: string) => ({ contains: value, mode: "insensitive" as const });
+function appendWhereAnd<T>(existing: T | T[] | undefined, clause: T) {
+  return [...(Array.isArray(existing) ? existing : existing ? [existing] : []), clause];
+}
 
 const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 const endOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
@@ -24,6 +28,8 @@ export function parseTaskFilters(params: SearchParamsInput) {
     status: status && Object.values(TaskStatus).includes(status as TaskStatus) ? (status as TaskStatus) : undefined,
     priority: priority && Object.values(TaskPriority).includes(priority as TaskPriority) ? (priority as TaskPriority) : undefined,
     due: due === "today" || due === "overdue" || due === "upcoming" ? due : undefined,
+    tag: normalizeTagList(readParam(params, "tag")),
+    project: projectTagsFromValue(readParam(params, "project")),
   };
 }
 
@@ -34,6 +40,20 @@ export function buildTaskWhere(params: SearchParamsInput, user: CurrentUser, now
   if (filters.owner === "me") where.ownerId = user.id;
   if (filters.status) where.status = filters.status;
   if (filters.priority) where.priority = filters.priority;
+  if (filters.tag.length > 0 || filters.project.length > 0) {
+    const tags = [...filters.tag, ...filters.project];
+    where.AND = appendWhereAnd(where.AND, {
+      OR: [
+        { company: { is: { tags: { hasSome: tags } } } },
+        { contact: { is: { tags: { hasSome: tags } } } },
+        { lead: { is: { tags: { hasSome: tags } } } },
+        { opportunity: { is: { company: { is: { tags: { hasSome: tags } } } } } },
+        { opportunity: { is: { contact: { is: { tags: { hasSome: tags } } } } } },
+        { opportunity: { is: { sourceLead: { is: { tags: { hasSome: tags } } } } } },
+        { opportunity: { is: { sourceLead: { is: { company: { is: { tags: { hasSome: tags } } } } } } } },
+      ],
+    } as Prisma.TaskWhereInput);
+  }
   if (filters.due === "today") {
     where.dueAt = { gte: startOfDay(now), lt: endOfDay(now) };
     where.status = { notIn: [TaskStatus.DONE, TaskStatus.CANCELLED] };
@@ -73,6 +93,8 @@ export function parseActivityFilters(params: SearchParamsInput) {
     type: type && Object.values(ActivityType).includes(type as ActivityType) ? (type as ActivityType) : undefined,
     entityType: entityType === "company" || entityType === "contact" || entityType === "lead" || entityType === "opportunity" ? entityType : undefined,
     entityId,
+    tag: normalizeTagList(readParam(params, "tag")),
+    project: projectTagsFromValue(readParam(params, "project")),
   };
 }
 
@@ -87,6 +109,20 @@ export function buildActivityWhere(params: SearchParamsInput, user: CurrentUser)
     if (filters.entityType === "contact") where.contactId = filters.entityId;
     if (filters.entityType === "lead") where.leadId = filters.entityId;
     if (filters.entityType === "opportunity") where.opportunityId = filters.entityId;
+  }
+  if (filters.tag.length > 0 || filters.project.length > 0) {
+    const tags = [...filters.tag, ...filters.project];
+    where.AND = appendWhereAnd(where.AND, {
+      OR: [
+        { company: { is: { tags: { hasSome: tags } } } },
+        { contact: { is: { tags: { hasSome: tags } } } },
+        { lead: { is: { tags: { hasSome: tags } } } },
+        { opportunity: { is: { company: { is: { tags: { hasSome: tags } } } } } },
+        { opportunity: { is: { contact: { is: { tags: { hasSome: tags } } } } } },
+        { opportunity: { is: { sourceLead: { is: { tags: { hasSome: tags } } } } } },
+        { opportunity: { is: { sourceLead: { is: { company: { is: { tags: { hasSome: tags } } } } } } } },
+      ],
+    } as Prisma.ActivityWhereInput);
   }
   if (filters.q) {
     where.OR = [

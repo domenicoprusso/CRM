@@ -1,9 +1,14 @@
 import { LeadStatus, type Prisma } from "@prisma/client";
+import { normalizeTagList, projectTagsFromValue } from "@/lib/tagging";
 
 export type SearchParamsInput = Record<string, string | string[] | undefined>;
 type CurrentUser = { id: string; tenantId: string };
 
 const contains = (value: string) => ({ contains: value, mode: "insensitive" as const });
+const tagContains = (tags: string[]) => ({ hasSome: tags });
+function appendWhereAnd<T>(existing: T | T[] | undefined, clause: T) {
+  return [...(Array.isArray(existing) ? existing : existing ? [existing] : []), clause];
+}
 
 export function readParam(params: SearchParamsInput, key: string) {
   const value = params[key];
@@ -18,6 +23,8 @@ export function parseCompanyFilters(params: SearchParamsInput) {
     owner: readParam(params, "owner"),
     industry: readParam(params, "industry"),
     country: readParam(params, "country"),
+    tag: normalizeTagList(readParam(params, "tag")),
+    project: projectTagsFromValue(readParam(params, "project")),
   };
 }
 
@@ -28,6 +35,10 @@ export function buildCompanyWhere(params: SearchParamsInput, user: CurrentUser):
   if (filters.owner === "me") where.ownerId = user.id;
   if (filters.industry) where.industry = contains(filters.industry);
   if (filters.country) where.country = contains(filters.country);
+  if (filters.tag.length > 0) where.tags = tagContains(filters.tag);
+  if (filters.project.length > 0) {
+    where.AND = appendWhereAnd(where.AND, { tags: tagContains(filters.project) });
+  }
   if (filters.q) {
     where.OR = [
       { name: contains(filters.q) },
@@ -50,6 +61,8 @@ export function parseContactFilters(params: SearchParamsInput) {
     owner: readParam(params, "owner"),
     lifecycle: lifecycle && Object.values(LeadStatus).includes(lifecycle as LeadStatus) ? (lifecycle as LeadStatus) : undefined,
     companyId: readParam(params, "companyId"),
+    tag: normalizeTagList(readParam(params, "tag")),
+    project: projectTagsFromValue(readParam(params, "project")),
   };
 }
 
@@ -60,6 +73,8 @@ export function buildContactWhere(params: SearchParamsInput, user: CurrentUser):
   if (filters.owner === "me") where.ownerId = user.id;
   if (filters.lifecycle) where.lifecycle = filters.lifecycle;
   if (filters.companyId) where.companyId = filters.companyId;
+  if (filters.tag.length > 0) where.tags = tagContains(filters.tag);
+  if (filters.project.length > 0) where.AND = appendWhereAnd(where.AND, { tags: tagContains(filters.project) });
   if (filters.q) {
     where.OR = [
       { firstName: contains(filters.q) },
@@ -85,6 +100,8 @@ export function parseLeadFilters(params: SearchParamsInput) {
     companyId: readParam(params, "companyId"),
     contactId: readParam(params, "contactId"),
     scoreMin: Number.isFinite(scoreMin) && scoreMin >= 0 && scoreMin <= 100 ? scoreMin : undefined,
+    tag: normalizeTagList(readParam(params, "tag")),
+    project: projectTagsFromValue(readParam(params, "project")),
   };
 }
 
@@ -97,6 +114,8 @@ export function buildLeadWhere(params: SearchParamsInput, user: CurrentUser): Pr
   if (filters.companyId) where.companyId = filters.companyId;
   if (filters.contactId) where.contactId = filters.contactId;
   if (filters.scoreMin !== undefined) where.score = { gte: filters.scoreMin };
+  if (filters.tag.length > 0) where.tags = tagContains(filters.tag);
+  if (filters.project.length > 0) where.AND = appendWhereAnd(where.AND, { tags: tagContains(filters.project) });
   if (filters.q) {
     where.OR = [
       { title: contains(filters.q) },

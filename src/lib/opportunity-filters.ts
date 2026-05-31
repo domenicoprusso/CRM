@@ -1,10 +1,14 @@
 import type { Prisma } from "@prisma/client";
 import { readParam, type SearchParamsInput } from "@/lib/crm-filters";
+import { normalizeTagList, projectTagsFromValue } from "@/lib/tagging";
 
 type CurrentUser = { id: string; tenantId: string };
 export type OpportunityStatusFilter = "open" | "won" | "lost";
 
 const contains = (value: string) => ({ contains: value, mode: "insensitive" as const });
+function appendWhereAnd<T>(existing: T | T[] | undefined, clause: T) {
+  return [...(Array.isArray(existing) ? existing : existing ? [existing] : []), clause];
+}
 
 export function parseOpportunityFilters(params: SearchParamsInput) {
   const status = readParam(params, "status");
@@ -15,6 +19,8 @@ export function parseOpportunityFilters(params: SearchParamsInput) {
     companyId: readParam(params, "companyId"),
     contactId: readParam(params, "contactId"),
     status: status === "open" || status === "won" || status === "lost" ? status : undefined,
+    tag: normalizeTagList(readParam(params, "tag")),
+    project: projectTagsFromValue(readParam(params, "project")),
   };
 }
 
@@ -26,6 +32,17 @@ export function buildOpportunityWhere(params: SearchParamsInput, user: CurrentUs
   if (filters.stageId) where.stageId = filters.stageId;
   if (filters.companyId) where.companyId = filters.companyId;
   if (filters.contactId) where.contactId = filters.contactId;
+  if (filters.tag.length > 0 || filters.project.length > 0) {
+    const tags = [...filters.tag, ...filters.project];
+    where.AND = appendWhereAnd(where.AND, {
+      OR: [
+        { company: { is: { tags: { hasSome: tags } } } },
+        { contact: { is: { tags: { hasSome: tags } } } },
+        { sourceLead: { is: { tags: { hasSome: tags } } } },
+        { sourceLead: { is: { company: { is: { tags: { hasSome: tags } } } } } },
+      ],
+    } as Prisma.OpportunityWhereInput);
+  }
   if (filters.status === "won") where.stage = { isWon: true };
   if (filters.status === "lost") where.stage = { isLost: true };
   if (filters.status === "open") where.stage = { isWon: false, isLost: false };

@@ -30,6 +30,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     from: fromInput,
     to: toInput,
     ...(readParam(params, "ownerId") ? { ownerId: readParam(params, "ownerId")! } : {}),
+    ...(readParam(params, "tag") ? { tag: readParam(params, "tag")! } : {}),
+    ...(readParam(params, "project") ? { project: readParam(params, "project")! } : {}),
   });
 
   return (
@@ -41,7 +43,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       />
 
       <Card className="mb-6">
-        <form method="get" className="grid gap-3 xl:grid-cols-[180px_180px_1fr_auto_auto] xl:items-end">
+        <form method="get" className="grid gap-3 xl:grid-cols-[180px_180px_1fr_1fr_1fr_auto_auto] xl:items-end">
           <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
             Dal
             <input name="from" type="date" defaultValue={fromInput} />
@@ -59,6 +61,14 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                 </option>
               ))}
             </select>
+          </label>
+          <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Tag
+            <input name="tag" defaultValue={readParam(params, "tag") ?? ""} placeholder="Scuole, enterprise..." />
+          </label>
+          <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Progetto
+            <input name="project" defaultValue={readParam(params, "project") ?? ""} placeholder="Scuole Roma" />
           </label>
           <ButtonLink href="/reports">Reset</ButtonLink>
           <SubmitButton label="Aggiorna" />

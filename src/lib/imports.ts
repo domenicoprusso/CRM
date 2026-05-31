@@ -3,6 +3,7 @@ import { ActivityType, LeadStatus, TaskPriority, TaskStatus } from "@prisma/clie
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ensureDefaultPipelineStages } from "@/lib/pipeline";
+import { normalizeTagList, projectTagsFromValue, splitMultiValue } from "@/lib/tagging";
 import { importEntitySchema } from "@/lib/validators";
 
 export const importEntityLabels = {
@@ -109,6 +110,52 @@ export function parseCsv(text: string): ParsedCsv {
     headers: rows.shift() ?? [],
     rows,
   };
+}
+
+function extractQuotedValues(line: string) {
+  return [...line.matchAll(/"([^"]*)"/g)].map((match) => match[1]);
+}
+
+export function looksLikeTeamSystemCompanyExport(text: string) {
+  const cleaned = text.replace(/^\uFEFF/, "");
+  return cleaned.includes("IDAVATAR_COMPANY_ID") || cleaned.includes("Codice_x0020_azienda") || cleaned.split(/\r?\n/).some((line) => extractQuotedValues(line).length >= 50);
+}
+
+export function parseTeamSystemCompanyExport(text: string): ParsedCsv {
+  const cleaned = text.replace(/^\uFEFF/, "");
+  const lines = cleaned.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  const startIndex = extractQuotedValues(lines[0] ?? "").length >= 50 ? 0 : 1;
+  const dataLines = lines.slice(startIndex).filter((line) => extractQuotedValues(line).length > 0);
+  const headers = ["externalId", "name", "industry", "website", "phone", "email", "address", "city", "country", "owner", "tags", "notes"];
+  const rows = dataLines.map((line) => {
+    const values = extractQuotedValues(line);
+    const fieldAt = (position: number) => values[position - 1] ?? "";
+    const phones = splitMultiValue(fieldAt(8));
+    const emails = splitMultiValue(fieldAt(9));
+    const projectTags = projectTagsFromValue(fieldAt(11));
+    const structuredTags = normalizeTagList(fieldAt(36));
+    const notes = [fieldAt(13), fieldAt(14)]
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .join(" | ");
+
+    return [
+      fieldAt(1),
+      fieldAt(3),
+      "",
+      "",
+      phones[0] ?? "",
+      emails[0] ?? "",
+      fieldAt(23),
+      fieldAt(6),
+      fieldAt(25),
+      "",
+      [...projectTags, ...structuredTags].join(","),
+      notes,
+    ];
+  });
+
+  return { delimiter: "teamsystem", headers, rows };
 }
 
 function buildRowObject(headers: string[], values: string[]) {
@@ -861,13 +908,29 @@ function withDuplicateReport(rows: PreviewRow[]) {
 
 export async function createImportPreview(prismaClient: typeof prisma, tenantId: string, userId: string, entityInput: string, source: string, fileName: string, csvText: string) {
   const entity = importEntitySchema.parse(entityInput);
-  const parsed = parseCsv(csvText);
+  const useTeamSystemCompanyAdapter = entity === "companies" && /teamsystem/i.test(source) && looksLikeTeamSystemCompanyExport(csvText);
+  const parsed = useTeamSystemCompanyAdapter ? parseTeamSystemCompanyExport(csvText) : parseCsv(csvText);
   if (parsed.headers.length === 0) throw new Error("csv-empty");
   const ctx = await buildContext(prismaClient, tenantId);
   ctx.userId = userId;
 
   const { aliases } = rowMapper(entity);
-  const mapping = buildFieldMapping(parsed.headers, aliases);
+  const mapping = useTeamSystemCompanyAdapter
+    ? {
+        externalId: "externalId",
+        name: "name",
+        industry: "industry",
+        website: "website",
+        phone: "phone",
+        email: "email",
+        address: "address",
+        city: "city",
+        country: "country",
+        owner: "owner",
+        tags: "tags",
+        notes: "notes",
+      }
+    : buildFieldMapping(parsed.headers, aliases);
   const existingMaps = await getExistingMaps(prismaClient, tenantId, entity);
   const seen = new Set<string>();
 

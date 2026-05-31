@@ -85,7 +85,7 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
 
         <div className="space-y-6">
           <Card>
-            <form className="grid gap-3 xl:grid-cols-[1fr_150px_170px_150px_auto_auto] xl:items-end">
+            <form className="grid gap-3 xl:grid-cols-[1fr_150px_170px_150px_150px_150px_auto_auto] xl:items-end">
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Cerca
                 <input name="q" defaultValue={filters.q ?? ""} placeholder="Titolo, azienda, contatto..." />
@@ -116,6 +116,14 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
                   <option value="">Tutti</option>
                   <option value="me">I miei record</option>
                 </select>
+              </label>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Tag
+                <input name="tag" defaultValue={readParam(params, "tag") ?? ""} placeholder="Scuole" />
+              </label>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Progetto
+                <input name="project" defaultValue={readParam(params, "project") ?? ""} placeholder="Scuole Roma" />
               </label>
               <SubmitButton label="Filtra" />
               <ButtonLink href="/opportunities">Reset</ButtonLink>

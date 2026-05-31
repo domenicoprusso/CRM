@@ -66,8 +66,9 @@ export default async function ImportsPage() {
           <div className="mt-4 space-y-3 text-sm text-slate-600">
             <p>Usa CSV separato per azienda, contatto, lead, opportunita, attivita e task.</p>
             <p>Se disponibile, esporta sempre un id esterno stabile per ogni riga.</p>
+            <p>Il campo Progetto viene importato come tag strutturato project:&lt;slug&gt;.</p>
             <p>Per contatti, lead e opportunita includi la chiave della relazione padre quando esiste.</p>
-            <p>Per owner/assegnatario usa email utente o un identificativo che sia riconducibile al CRM.</p>
+            <p>Gli owner TeamSystem legacy vengono ignorati; il CRM usa solo ownerId reale per i record operativi.</p>
           </div>
         </Card>
       </div>
