@@ -14,6 +14,9 @@ export type Permission =
   | "pipeline:write"
   | "reports:read"
   | "reports:export"
+  | "import:read"
+  | "import:write"
+  | "import:rollback"
   | "activity:read"
   | "activity:write"
   | "task:read"
@@ -36,6 +39,9 @@ const rolePermissions: Record<Role, Permission[]> = {
     "pipeline:write",
     "reports:read",
     "reports:export",
+    "import:read",
+    "import:write",
+    "import:rollback",
     "activity:read",
     "activity:write",
     "task:read",
@@ -57,6 +63,9 @@ const rolePermissions: Record<Role, Permission[]> = {
     "pipeline:write",
     "reports:read",
     "reports:export",
+    "import:read",
+    "import:write",
+    "import:rollback",
     "activity:read",
     "activity:write",
     "task:read",
@@ -90,6 +99,7 @@ const rolePermissions: Record<Role, Permission[]> = {
     "opportunity:read",
     "pipeline:read",
     "reports:read",
+    "import:read",
     "activity:read",
     "activity:write",
     "task:read",

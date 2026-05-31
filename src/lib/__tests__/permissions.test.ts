@@ -44,4 +44,15 @@ describe("RBAC permissions", () => {
     expect(can("VIEWER", "task:write")).toBe(false);
     expect(can("VIEWER", "activity:write")).toBe(false);
   });
+
+  it("restricts import operations to operational roles", () => {
+    expect(can("ADMIN", "import:write")).toBe(true);
+    expect(can("ADMIN", "import:rollback")).toBe(true);
+    expect(can("MANAGER", "import:write")).toBe(true);
+    expect(can("MANAGER", "import:rollback")).toBe(true);
+    expect(can("SUPPORT", "import:read")).toBe(true);
+    expect(can("SUPPORT", "import:write")).toBe(false);
+    expect(can("SUPPORT", "import:rollback")).toBe(false);
+    expect(can("SALES", "import:read")).toBe(false);
+  });
 });

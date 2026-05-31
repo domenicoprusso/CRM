@@ -112,6 +112,7 @@ model User {
 model Company {
   id        String   @id @default(cuid())
   tenantId  String
+  externalId String?
   ownerId   String?
   name      String
   industry  String?
@@ -136,11 +137,13 @@ model Company {
   documents     Document[]
 
   @@index([tenantId, name])
+  @@unique([tenantId, externalId])
 }
 
 model Contact {
   id              String     @id @default(cuid())
   tenantId        String
+  externalId      String?
   ownerId         String?
   companyId       String?
   firstName       String
@@ -166,11 +169,13 @@ model Contact {
 
   @@index([tenantId, email])
   @@index([tenantId, lastName, firstName])
+  @@unique([tenantId, externalId])
 }
 
 model Lead {
   id                String     @id @default(cuid())
   tenantId          String
+  externalId        String?
   ownerId           String?
   companyId         String?
   contactId         String?
@@ -196,6 +201,7 @@ model Lead {
 
   @@index([tenantId, status])
   @@index([tenantId, score])
+  @@unique([tenantId, externalId])
 }
 
 model PipelineStage {
@@ -219,6 +225,7 @@ model PipelineStage {
 model Opportunity {
   id                String    @id @default(cuid())
   tenantId          String
+  externalId        String?
   ownerId           String?
   companyId         String?
   contactId         String?
@@ -244,11 +251,13 @@ model Opportunity {
 
   @@index([tenantId, stageId])
   @@index([tenantId, expectedCloseDate])
+  @@unique([tenantId, externalId])
 }
 
 model Activity {
   id            String       @id @default(cuid())
   tenantId      String
+  externalId    String?
   userId        String
   companyId     String?
   contactId     String?
@@ -267,11 +276,13 @@ model Activity {
   opportunity Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, occurredAt])
+  @@unique([tenantId, externalId])
 }
 
 model Task {
   id            String       @id @default(cuid())
   tenantId      String
+  externalId    String?
   ownerId       String
   companyId     String?
   contactId     String?
@@ -299,6 +310,7 @@ model Task {
   @@index([tenantId, companyId])
   @@index([tenantId, reminderAt])
   @@index([ownerId, status])
+  @@unique([tenantId, externalId])
 }
 
 model Document {

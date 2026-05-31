@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BadgeDollarSign, BarChart3, Building2, KanbanSquare, LayoutDashboard, ListTodo, LogOut, Target, UsersRound } from "lucide-react";
+import { BadgeDollarSign, BarChart3, Building2, KanbanSquare, LayoutDashboard, ListTodo, LogOut, Target, Upload, UsersRound } from "lucide-react";
 import type { Role } from "@prisma/client";
 
 const navigation = [
@@ -10,6 +10,7 @@ const navigation = [
   { href: "/opportunities", label: "Opportunita", icon: BadgeDollarSign },
   { href: "/pipeline", label: "Pipeline", icon: KanbanSquare },
   { href: "/reports", label: "Report", icon: BarChart3 },
+  { href: "/imports", label: "Import", icon: Upload },
   { href: "/tasks", label: "Attivita", icon: ListTodo },
 ];
 

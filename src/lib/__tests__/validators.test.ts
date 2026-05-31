@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   activitySchema,
   activityUpdateSchema,
+  importEntitySchema,
+  importSourceSchema,
   companySchema,
   contactSchema,
   contactUpdateSchema,
@@ -137,5 +139,11 @@ describe("CRM validation schemas", () => {
     expect(parsed.reminderAt).toBeNull();
     expect(parsed.companyId).toBeNull();
     expect(taskUpdateSchema.parse({ completedAt: "" })).toEqual({ completedAt: null });
+  });
+
+  it("validates import entity and source payloads", () => {
+    expect(importEntitySchema.parse("companies")).toBe("companies");
+    expect(importSourceSchema.parse("TeamSystem CRM")).toBe("TeamSystem CRM");
+    expect(importEntitySchema.safeParse("xlsx").success).toBe(false);
   });
 });
