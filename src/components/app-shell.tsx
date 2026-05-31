@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BadgeDollarSign, BarChart3, Building2, KanbanSquare, LayoutDashboard, ListTodo, LogOut, Target, Upload, UsersRound } from "lucide-react";
 import type { Role } from "@prisma/client";
+import { NotificationBell } from "@/components/notification-bell";
 
 const navigation = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -14,7 +15,7 @@ const navigation = [
   { href: "/tasks", label: "Attivita", icon: ListTodo },
 ];
 
-export function AppShell({ children, user }: { children: React.ReactNode; user: { name: string; email: string; role: Role } }) {
+export function AppShell({ children, user }: { children: React.ReactNode; user: { id: string; tenantId: string; name: string; email: string; role: Role } }) {
   return (
     <div className="min-h-screen bg-slate-50">
       <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-slate-200 bg-white/90 p-6 backdrop-blur lg:block">
@@ -38,6 +39,7 @@ export function AppShell({ children, user }: { children: React.ReactNode; user: 
             <h1 className="text-xl font-semibold text-slate-950">Centro operativo</h1>
           </div>
           <div className="flex items-center gap-4">
+            <NotificationBell tenantId={user.tenantId} userId={user.id} />
             <div className="hidden text-right sm:block">
               <p className="text-sm font-semibold text-slate-900">{user.name}</p>
               <p className="text-xs text-slate-500">{user.role.toLowerCase()} · {user.email}</p>

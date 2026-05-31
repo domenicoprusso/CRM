@@ -1,8 +1,11 @@
 import { ButtonLink, Card, EmptyState, PageHeader, StatCard } from "@/components/ui";
+import { NotificationPanel } from "@/components/notification-panel";
 import { ReportSection, ReportTable } from "@/components/reporting";
 import { requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
+import { buildNotificationStorageKey } from "@/lib/notification-state";
 import { getReportSnapshot, parseReportFilters, formatPercentage, reportPeriodLabel } from "@/lib/reports";
+import { getNotificationSnapshot } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 
 function money(value: number) {
@@ -11,7 +14,10 @@ function money(value: number) {
 
 export default async function DashboardPage() {
   const user = await requireUser("dashboard:read");
-  const snapshot = await getReportSnapshot(prisma, user.tenantId, parseReportFilters({}));
+  const [snapshot, notificationSnapshot] = await Promise.all([
+    getReportSnapshot(prisma, user.tenantId, parseReportFilters({})),
+    getNotificationSnapshot(prisma, user.tenantId),
+  ]);
   const exportEnabled = can(user.role, "reports:export");
 
   return (
@@ -27,6 +33,14 @@ export default async function DashboardPage() {
         <StatCard label="Conversion rate" value={formatPercentage(snapshot.summary.conversionRate)} hint="Lead convertiti in opportunita" />
         <StatCard label="Won rate" value={formatPercentage(snapshot.summary.wonRate)} hint="Opportunita vinte sul totale chiuso" />
         <StatCard label="Lost rate" value={formatPercentage(snapshot.summary.lostRate)} hint="Opportunita perse sul totale chiuso" />
+      </div>
+
+      <div className="mt-6">
+        <NotificationPanel
+          snapshot={notificationSnapshot}
+          storageKey={buildNotificationStorageKey(user.tenantId, user.id)}
+          variant="widget"
+        />
       </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
