@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { deleteLead, updateLead } from "../actions";
 import { convertLeadToOpportunity } from "../../opportunities/actions";
 import { Badge, ButtonLink, Card, DangerButton, FieldValue, Notice, PageHeader, SubmitButton } from "@/components/ui";
+import { ActivityTimeline, TaskList } from "@/components/productivity";
 import { requireUser } from "@/lib/auth";
 import { readParam, type SearchParamsInput } from "@/lib/crm-filters";
 import { ensureDefaultPipelineStages } from "@/lib/pipeline";
@@ -43,6 +44,8 @@ export default async function LeadDetailPage({ params, searchParams }: PageProps
         contact: true,
         owner: true,
         sourceOpportunity: true,
+        activities: { orderBy: { occurredAt: "desc" }, take: 10, include: { user: true, company: true, contact: true, lead: true, opportunity: true } },
+        tasks: { where: { status: { notIn: ["DONE", "CANCELLED"] } }, orderBy: [{ dueAt: "asc" }, { updatedAt: "desc" }], take: 10, include: { owner: true, company: true, contact: true, lead: true, opportunity: true } },
         _count: { select: { activities: true, tasks: true, documents: true } },
       },
     }),
@@ -145,6 +148,20 @@ export default async function LeadDetailPage({ params, searchParams }: PageProps
               </form>
             </Card>
           ) : null}
+
+          <Card>
+            <h3 className="text-lg font-semibold text-slate-950">Timeline attivita</h3>
+            <div className="mt-4">
+              <ActivityTimeline activities={lead.activities} />
+            </div>
+          </Card>
+
+          <Card>
+            <h3 className="text-lg font-semibold text-slate-950">Follow-up aperti</h3>
+            <div className="mt-4">
+              <TaskList tasks={lead.tasks} />
+            </div>
+          </Card>
 
           <Card className="border-red-100">
             <h3 className="text-lg font-semibold text-red-700">Elimina lead</h3>

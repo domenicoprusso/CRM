@@ -28,6 +28,8 @@ describe("RBAC permissions", () => {
     expect(can("SALES", "opportunity:write")).toBe(true);
     expect(can("SALES", "pipeline:read")).toBe(true);
     expect(can("SALES", "pipeline:write")).toBe(false);
+    expect(can("SALES", "task:write")).toBe(true);
+    expect(can("SALES", "activity:write")).toBe(true);
   });
 
   it("keeps support and viewer roles read-only for opportunities", () => {
@@ -35,5 +37,7 @@ describe("RBAC permissions", () => {
     expect(can("SUPPORT", "opportunity:write")).toBe(false);
     expect(can("VIEWER", "opportunity:read")).toBe(true);
     expect(can("VIEWER", "opportunity:write")).toBe(false);
+    expect(can("VIEWER", "task:write")).toBe(false);
+    expect(can("VIEWER", "activity:write")).toBe(false);
   });
 });

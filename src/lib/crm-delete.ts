@@ -17,6 +17,7 @@ export async function getCompanyDeleteState(tenantId: string, id: string) {
           contacts: true,
           leads: true,
           opportunities: true,
+          tasks: true,
           activities: true,
           documents: true,
         },
@@ -31,6 +32,7 @@ export async function getCompanyDeleteState(tenantId: string, id: string) {
           { label: "contatti", count: record._count.contacts },
           { label: "lead", count: record._count.leads },
           { label: "opportunita", count: record._count.opportunities },
+          { label: "task", count: record._count.tasks },
           { label: "attivita", count: record._count.activities },
           { label: "documenti", count: record._count.documents },
         ])

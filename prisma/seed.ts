@@ -111,6 +111,43 @@ async function main() {
       notes: "Opportunita demo generata dal lead seed.",
     },
   });
+
+  await prisma.activity.upsert({
+    where: { id: "seed-activity-call" },
+    update: {},
+    create: {
+      id: "seed-activity-call",
+      tenantId: tenant.id,
+      userId: admin.id,
+      companyId: acme.id,
+      contactId: contact.id,
+      leadId: lead.id,
+      opportunityId: "seed-opportunity-erp",
+      type: "CALL",
+      subject: "Chiamata di follow-up demo",
+      body: "Confermata la proposta e raccolti i prossimi passi.",
+      occurredAt: new Date("2026-05-31T09:30:00Z"),
+    },
+  });
+
+  await prisma.task.upsert({
+    where: { id: "seed-task-followup" },
+    update: {},
+    create: {
+      id: "seed-task-followup",
+      tenantId: tenant.id,
+      ownerId: admin.id,
+      companyId: acme.id,
+      contactId: contact.id,
+      opportunityId: "seed-opportunity-erp",
+      title: "Inviare follow-up post demo",
+      description: "Riepilogo prezzi e prossimi passi.",
+      status: "TODO",
+      priority: "HIGH",
+      dueAt: new Date("2026-06-02T17:00:00Z"),
+      reminderAt: new Date("2026-06-02T08:00:00Z"),
+    },
+  });
 }
 
 main()

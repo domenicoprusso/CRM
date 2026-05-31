@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteCompany, updateCompany } from "../actions";
 import { Badge, ButtonLink, Card, DangerButton, EmptyState, FieldValue, Notice, PageHeader, SubmitButton } from "@/components/ui";
+import { ActivityTimeline, TaskList } from "@/components/productivity";
 import { requireUser } from "@/lib/auth";
 import { readParam, type SearchParamsInput } from "@/lib/crm-filters";
 import { prisma } from "@/lib/prisma";
@@ -30,7 +31,9 @@ export default async function CompanyDetailPage({ params, searchParams }: PagePr
       owner: true,
       contacts: { orderBy: { updatedAt: "desc" }, take: 10 },
       leads: { orderBy: { updatedAt: "desc" }, take: 10 },
-      _count: { select: { contacts: true, leads: true, opportunities: true, activities: true, documents: true } },
+      activities: { orderBy: { occurredAt: "desc" }, take: 10, include: { user: true, company: true, contact: true, lead: true, opportunity: true } },
+      tasks: { where: { status: { notIn: ["DONE", "CANCELLED"] } }, orderBy: [{ dueAt: "asc" }, { updatedAt: "desc" }], take: 10, include: { owner: true, company: true, contact: true, lead: true, opportunity: true } },
+      _count: { select: { contacts: true, leads: true, opportunities: true, activities: true, tasks: true, documents: true } },
     },
   });
 
@@ -89,6 +92,20 @@ export default async function CompanyDetailPage({ params, searchParams }: PagePr
               ))}
             </div>
           </Card>
+
+          <Card>
+            <h3 className="text-lg font-semibold text-slate-950">Timeline attivita</h3>
+            <div className="mt-4">
+              <ActivityTimeline activities={company.activities} />
+            </div>
+          </Card>
+
+          <Card>
+            <h3 className="text-lg font-semibold text-slate-950">Follow-up aperti</h3>
+            <div className="mt-4">
+              <TaskList tasks={company.tasks} />
+            </div>
+          </Card>
         </div>
 
         <div className="space-y-6">
@@ -115,7 +132,7 @@ export default async function CompanyDetailPage({ params, searchParams }: PagePr
           <Card className="border-red-100">
             <h3 className="text-lg font-semibold text-red-700">Elimina azienda</h3>
             <p className="mt-2 text-sm text-slate-500">
-              Disponibile solo senza record collegati. Collegamenti: contatti {company._count.contacts}, lead {company._count.leads}, opportunita {company._count.opportunities}, attivita {company._count.activities}, documenti {company._count.documents}.
+              Disponibile solo senza record collegati. Collegamenti: contatti {company._count.contacts}, lead {company._count.leads}, opportunita {company._count.opportunities}, attivita {company._count.activities}, task {company._count.tasks}, documenti {company._count.documents}.
             </p>
             <form action={deleteCompany} className="mt-4 grid gap-3">
               <input type="hidden" name="id" value={company.id} />

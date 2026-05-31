@@ -2,10 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteOpportunity, setOpportunityOutcome, updateOpportunity } from "../actions";
 import { Badge, ButtonLink, Card, DangerButton, FieldValue, Notice, PageHeader, SubmitButton } from "@/components/ui";
+import { ActivityTimeline, NextActionPanel, TaskList } from "@/components/productivity";
 import { requireUser } from "@/lib/auth";
 import { readParam, type SearchParamsInput } from "@/lib/crm-filters";
 import { ensureDefaultPipelineStages } from "@/lib/pipeline";
 import { prisma } from "@/lib/prisma";
+import { getNextOpenTaskForOpportunity } from "@/lib/productivity";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -48,6 +50,8 @@ export default async function OpportunityDetailPage({ params, searchParams }: Pa
         owner: true,
         stage: true,
         sourceLead: true,
+        activities: { orderBy: { occurredAt: "desc" }, take: 10, include: { user: true, company: true, contact: true, lead: true, opportunity: true } },
+        tasks: { where: { status: { notIn: ["DONE", "CANCELLED"] } }, orderBy: [{ dueAt: "asc" }, { updatedAt: "desc" }], take: 10, include: { owner: true, company: true, contact: true, lead: true, opportunity: true } },
         _count: { select: { activities: true, tasks: true, documents: true } },
       },
     }),
@@ -56,6 +60,7 @@ export default async function OpportunityDetailPage({ params, searchParams }: Pa
   ]);
 
   if (!opportunity) notFound();
+  const nextAction = await getNextOpenTaskForOpportunity(prisma, user.tenantId, opportunity.id);
 
   return (
     <>
@@ -79,6 +84,27 @@ export default async function OpportunityDetailPage({ params, searchParams }: Pa
               <FieldValue label="Contatto" value={opportunity.contact ? <Link href={`/contacts/${opportunity.contact.id}`} className="text-brand-700 hover:text-brand-900">{opportunity.contact.firstName} {opportunity.contact.lastName}</Link> : "N/D"} />
             </div>
             {opportunity.notes ? <p className="mt-5 whitespace-pre-wrap text-sm text-slate-600">{opportunity.notes}</p> : null}
+          </Card>
+
+          <Card>
+            <h3 className="text-lg font-semibold text-slate-950">Next Action</h3>
+            <div className="mt-4">
+              <NextActionPanel task={nextAction ? { ...nextAction, owner: nextAction.owner } : null} />
+            </div>
+          </Card>
+
+          <Card>
+            <h3 className="text-lg font-semibold text-slate-950">Timeline attivita</h3>
+            <div className="mt-4">
+              <ActivityTimeline activities={opportunity.activities} />
+            </div>
+          </Card>
+
+          <Card>
+            <h3 className="text-lg font-semibold text-slate-950">Follow-up aperti</h3>
+            <div className="mt-4">
+              <TaskList tasks={opportunity.tasks} />
+            </div>
           </Card>
 
           <Card>

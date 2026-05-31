@@ -1,4 +1,4 @@
-import { LeadStatus } from "@prisma/client";
+import { ActivityType, LeadStatus, TaskPriority, TaskStatus } from "@prisma/client";
 import { z } from "zod";
 
 const emptyStringToNull = (value: unknown) => {
@@ -20,6 +20,7 @@ const tags = z.preprocess(
 );
 const optionalDecimal = z.preprocess((value) => (value === "" || value === null ? null : value), z.coerce.number().nonnegative().nullable().optional());
 const optionalDate = z.preprocess((value) => (value === "" || value === null ? null : value), z.coerce.date().nullable().optional());
+const taskEntityId = optionalRelationId;
 
 export const companySchema = z.object({
   name: z.string().trim().min(2, "Il nome azienda e obbligatorio"),
@@ -88,6 +89,46 @@ export const leadConversionSchema = z.object({
   expectedCloseDate: optionalDate,
   notes: optionalString,
 });
+
+export const activitySchema = z
+  .object({
+    type: z.nativeEnum(ActivityType).default(ActivityType.NOTE),
+    subject: z.string().trim().min(2, "Il soggetto attivita e obbligatorio"),
+    body: optionalString,
+    occurredAt: optionalDate,
+    companyId: taskEntityId,
+    contactId: taskEntityId,
+    leadId: taskEntityId,
+    opportunityId: taskEntityId,
+  });
+
+export const activityUpdateSchema = z.object({
+  type: z.nativeEnum(ActivityType).optional(),
+  subject: z.string().trim().min(2, "Il soggetto attivita e obbligatorio").optional(),
+  body: optionalString,
+  occurredAt: optionalDate,
+  companyId: taskEntityId,
+  contactId: taskEntityId,
+  leadId: taskEntityId,
+  opportunityId: taskEntityId,
+});
+
+export const taskSchema = z.object({
+  title: z.string().trim().min(2, "Il titolo task e obbligatorio"),
+  description: optionalString,
+  ownerId: taskEntityId,
+  status: z.nativeEnum(TaskStatus).default(TaskStatus.TODO),
+  priority: z.nativeEnum(TaskPriority).default(TaskPriority.MEDIUM),
+  dueAt: optionalDate,
+  reminderAt: optionalDate,
+  completedAt: optionalDate,
+  companyId: taskEntityId,
+  contactId: taskEntityId,
+  leadId: taskEntityId,
+  opportunityId: taskEntityId,
+});
+
+export const taskUpdateSchema = taskSchema.partial();
 
 export const loginSchema = z.object({
   email: z.string().email(),

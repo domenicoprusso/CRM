@@ -131,6 +131,7 @@ model Company {
   contacts      Contact[]
   leads         Lead[]
   opportunities Opportunity[]
+  tasks         Task[]
   activities    Activity[]
   documents     Document[]
 
@@ -272,6 +273,7 @@ model Task {
   id            String       @id @default(cuid())
   tenantId      String
   ownerId       String
+  companyId     String?
   contactId     String?
   leadId        String?
   opportunityId String?
@@ -281,16 +283,21 @@ model Task {
   priority      TaskPriority @default(MEDIUM)
   dueAt         DateTime?
   reminderAt    DateTime?
+  reminderSentAt DateTime?
+  completedAt   DateTime?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   owner       User         @relation("TaskOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  company     Company?     @relation(fields: [companyId], references: [id], onDelete: SetNull)
   contact     Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
   lead        Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
   opportunity Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, dueAt])
+  @@index([tenantId, companyId])
+  @@index([tenantId, reminderAt])
   @@index([ownerId, status])
 }
 

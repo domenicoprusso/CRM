@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteContact, updateContact } from "../actions";
 import { Badge, ButtonLink, Card, DangerButton, EmptyState, FieldValue, Notice, PageHeader, SubmitButton } from "@/components/ui";
+import { ActivityTimeline, TaskList } from "@/components/productivity";
 import { requireUser } from "@/lib/auth";
 import { readParam, type SearchParamsInput } from "@/lib/crm-filters";
 import { prisma } from "@/lib/prisma";
@@ -33,6 +34,8 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
         company: true,
         owner: true,
         leads: { orderBy: { updatedAt: "desc" }, take: 10 },
+        activities: { orderBy: { occurredAt: "desc" }, take: 10, include: { user: true, company: true, contact: true, lead: true, opportunity: true } },
+        tasks: { where: { status: { notIn: ["DONE", "CANCELLED"] } }, orderBy: [{ dueAt: "asc" }, { updatedAt: "desc" }], take: 10, include: { owner: true, company: true, contact: true, lead: true, opportunity: true } },
         _count: { select: { leads: true, opportunities: true, activities: true, tasks: true, documents: true } },
       },
     }),
@@ -79,6 +82,20 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
                   <p className="text-sm text-slate-500">Score {lead.score}/100</p>
                 </Link>
               ))}
+            </div>
+          </Card>
+
+          <Card>
+            <h3 className="text-lg font-semibold text-slate-950">Timeline attivita</h3>
+            <div className="mt-4">
+              <ActivityTimeline activities={contact.activities} />
+            </div>
+          </Card>
+
+          <Card>
+            <h3 className="text-lg font-semibold text-slate-950">Follow-up aperti</h3>
+            <div className="mt-4">
+              <TaskList tasks={contact.tasks} />
             </div>
           </Card>
         </div>

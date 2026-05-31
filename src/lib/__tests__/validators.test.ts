@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { companySchema, contactSchema, contactUpdateSchema, leadConversionSchema, leadSchema, leadUpdateSchema, loginSchema, opportunitySchema, opportunityUpdateSchema } from "@/lib/validators";
+import {
+  activitySchema,
+  activityUpdateSchema,
+  companySchema,
+  contactSchema,
+  contactUpdateSchema,
+  leadConversionSchema,
+  leadSchema,
+  leadUpdateSchema,
+  loginSchema,
+  opportunitySchema,
+  opportunityUpdateSchema,
+  taskSchema,
+  taskUpdateSchema,
+} from "@/lib/validators";
 
 describe("CRM validation schemas", () => {
   it("normalizes comma-separated tags for companies", () => {
@@ -93,5 +107,35 @@ describe("CRM validation schemas", () => {
   it("requires login passwords with at least eight characters", () => {
     expect(loginSchema.safeParse({ email: "admin@example.com", password: "short" }).success).toBe(false);
     expect(loginSchema.safeParse({ email: "admin@example.com", password: "ChangeMe123!" }).success).toBe(true);
+  });
+
+  it("validates activity payloads", () => {
+    const parsed = activitySchema.parse({
+      type: "CALL",
+      subject: "Richiamare il cliente",
+      body: "",
+    });
+
+    expect(parsed.body).toBeNull();
+    expect(parsed.companyId).toBeUndefined();
+    expect(activityUpdateSchema.parse({ subject: "Nota aggiornata" })).toEqual({ subject: "Nota aggiornata" });
+  });
+
+  it("validates task payloads with defaults and cleared dates", () => {
+    const parsed = taskSchema.parse({
+      title: "Seguire demo",
+      status: "IN_PROGRESS",
+      priority: "HIGH",
+      dueAt: "",
+      reminderAt: "",
+      companyId: "",
+    });
+
+    expect(parsed.status).toBe("IN_PROGRESS");
+    expect(parsed.priority).toBe("HIGH");
+    expect(parsed.dueAt).toBeNull();
+    expect(parsed.reminderAt).toBeNull();
+    expect(parsed.companyId).toBeNull();
+    expect(taskUpdateSchema.parse({ completedAt: "" })).toEqual({ completedAt: null });
   });
 });
