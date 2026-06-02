@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BadgeDollarSign, BarChart3, Building2, KanbanSquare, ListTodo, LogOut, Sun, Target, Upload, UsersRound } from "lucide-react";
@@ -48,14 +47,19 @@ export function AppShell({ children, user }: { children: React.ReactNode; user: 
     <div className="min-h-screen bg-slate-50">
       <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-slate-200 bg-white/90 p-6 backdrop-blur lg:block">
         <div className="mb-10">
-          <Image
-            src="/logo_bitcall.png"
-            alt="BitCall"
-            width={160}
-            height={48}
-            className="h-12 w-auto object-contain"
-            priority
-          />
+          <svg viewBox="0 0 220 70" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-12 w-auto">
+            {/* BitCall text */}
+            <text x="0" y="44" fontFamily="Georgia, 'Times New Roman', serif" fontSize="42" fontWeight="700" fill="#0f3d4c" letterSpacing="-1">BitCa</text>
+            {/* Two vertical bars (the "ll") in gold */}
+            <rect x="152" y="8" width="9" height="38" rx="2" fill="#f5a623" />
+            <rect x="167" y="8" width="9" height="38" rx="2" fill="#f5a623" />
+            {/* Small arrow left on baseline */}
+            <polygon points="148,50 155,46 155,54" fill="#f5a623" />
+            {/* Small arrow right on baseline */}
+            <polygon points="180,50 173,46 173,54" fill="#f5a623" />
+            {/* OUTSOURCING SOLUTIONS */}
+            <text x="1" y="64" fontFamily="Arial, sans-serif" fontSize="10" fontWeight="400" fill="#0f3d4c" letterSpacing="2">OUTSOURCING SOLUTIONS</text>
+          </svg>
           <p className="mt-3 text-sm text-slate-500">Workspace scalabile per vendite, supporto e customer success.</p>
         </div>
         <nav className="space-y-1">
