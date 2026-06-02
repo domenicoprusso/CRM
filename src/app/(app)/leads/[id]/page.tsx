@@ -1,5 +1,6 @@
 import { LeadStatus } from "@prisma/client";
 import Link from "next/link";
+import { Phone } from "lucide-react";
 import { notFound } from "next/navigation";
 import { deleteLead, quickCallOnLead, updateLead } from "../actions";
 import { convertLeadToOpportunity } from "../../opportunities/actions";
@@ -86,8 +87,11 @@ export default async function LeadDetailPage({ params, searchParams }: PageProps
         </div>
 
         <div className="space-y-6">
-          <Card className="border-brand-100 bg-brand-50/40">
-            <h3 className="text-lg font-semibold text-brand-900">Ho chiamato</h3>
+          <Card className="border-brand-200 bg-brand-50/60">
+            <h3 className="flex items-center gap-2 text-xl font-bold text-brand-900">
+              <Phone className="h-5 w-5 shrink-0" />
+              Ho chiamato
+            </h3>
             <p className="mt-1 text-sm text-slate-500">Registra la chiamata in 3 secondi. Se serve, aggiungi subito la prossima azione.</p>
             <form action={quickCallOnLead} className="mt-4 grid gap-3">
               <input type="hidden" name="leadId" value={lead.id} />
@@ -146,8 +150,8 @@ export default async function LeadDetailPage({ params, searchParams }: PageProps
           </Card>
 
           {!lead.sourceOpportunity && lead.status !== "LOST" && lead.status !== "CONVERTED" ? (
-            <Card>
-              <h3 className="text-lg font-semibold">Converti in opportunita</h3>
+            <Card className="border-emerald-200 bg-emerald-50/30">
+              <h3 className="text-lg font-semibold text-emerald-800">Converti in opportunita</h3>
               <form action={convertLeadToOpportunity} className="mt-4 grid gap-3">
                 <input type="hidden" name="leadId" value={lead.id} />
                 <input name="title" defaultValue={lead.title} placeholder="Titolo opportunita" required />
@@ -184,8 +188,8 @@ export default async function LeadDetailPage({ params, searchParams }: PageProps
           </Card>
 
           <Card className="border-red-100">
-            <h3 className="text-lg font-semibold text-red-700">Elimina lead</h3>
-            <p className="mt-2 text-sm text-slate-500">
+            <h3 className="text-sm font-semibold text-red-600">Elimina lead</h3>
+            <p className="mt-1 text-xs text-slate-400">
               Disponibile solo senza record collegati. Collegamenti: attivita {lead._count.activities}, task {lead._count.tasks}, documenti {lead._count.documents}.
             </p>
             <form action={deleteLead} className="mt-4 grid gap-3">
