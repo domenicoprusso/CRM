@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BadgeDollarSign, BarChart3, Building2, KanbanSquare, ListTodo, LogOut, Sun, Target, Upload, UsersRound } from "lucide-react";
@@ -47,19 +48,16 @@ export function AppShell({ children, user }: { children: React.ReactNode; user: 
     <div className="min-h-screen bg-slate-50">
       <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-slate-200 bg-white/90 p-6 backdrop-blur lg:block">
         <div className="mb-10">
-          <svg viewBox="0 0 200 56" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-11 w-auto">
-            {/* Full word: BitCall — "ll" replaced by gold bars visually */}
-            <text x="0" y="36" fontFamily="Georgia, 'Times New Roman', serif" fontSize="36" fontWeight="700" fill="#0f3d4c">BitCa</text>
-            {/* Gold bars replacing "ll" — positioned right after "BitCa" */}
-            <rect x="126" y="4"  width="8" height="32" rx="1.5" fill="#f5a623" />
-            <rect x="139" y="4"  width="8" height="32" rx="1.5" fill="#f5a623" />
-            {/* Arrow pointing left (before bars) */}
-            <polygon points="121,36 128,32 128,40" fill="#f5a623" />
-            {/* Arrow pointing right (after bars) */}
-            <polygon points="152,36 145,32 145,40" fill="#f5a623" />
-            {/* OUTSOURCING SOLUTIONS tagline */}
-            <text x="1" y="52" fontFamily="Arial, Helvetica, sans-serif" fontSize="8.5" fontWeight="400" fill="#0f3d4c" letterSpacing="1.8">OUTSOURCING SOLUTIONS</text>
-          </svg>
+          <div className="rounded-xl bg-[#0f3d4c] px-4 py-2">
+            <Image
+              src="/logo_bitcall.png"
+              alt="BitCall"
+              width={160}
+              height={44}
+              className="h-11 w-auto object-contain"
+              priority
+            />
+          </div>
           <p className="mt-3 text-sm text-slate-500">Workspace scalabile per vendite, supporto e customer success.</p>
         </div>
         <nav className="space-y-1">
