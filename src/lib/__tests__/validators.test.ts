@@ -24,10 +24,16 @@ describe("CRM validation schemas", () => {
       name: "Acme Italia",
       email: "info@acme.test",
       website: "https://acme.test",
+      region: "Lombardia",
+      province: "MI",
+      postalCode: "20100",
       tags: "enterprise, hot , migration",
     });
 
     expect(parsed.tags).toEqual(["enterprise", "hot", "migration"]);
+    expect(parsed.region).toBe("Lombardia");
+    expect(parsed.province).toBe("MI");
+    expect(parsed.postalCode).toBe("20100");
   });
 
   it("rejects invalid contact emails", () => {

@@ -121,6 +121,9 @@ model Company {
   email     String?
   address   String?
   city      String?
+  province  String?
+  region    String?
+  postalCode String?
   country   String?
   tags      String[] @default([])
   notes     String?
@@ -137,6 +140,9 @@ model Company {
   documents     Document[]
 
   @@index([tenantId, name])
+  @@index([tenantId, region])
+  @@index([tenantId, province])
+  @@index([tenantId, postalCode])
   @@unique([tenantId, externalId])
 }
 

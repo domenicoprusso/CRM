@@ -115,7 +115,7 @@ export async function GET(request: Request) {
       orderBy: { name: "asc" },
     });
     csv = toCsv(
-      ["id", "name", "owner", "industry", "email", "phone", "city", "country"],
+      ["id", "name", "owner", "industry", "email", "phone", "city", "province", "region", "postalCode", "country"],
       companies.map((company) => ({
         id: company.id,
         name: company.name,
@@ -124,6 +124,9 @@ export async function GET(request: Request) {
         email: company.email ?? "",
         phone: company.phone ?? "",
         city: company.city ?? "",
+        province: company.province ?? "",
+        region: company.region ?? "",
+        postalCode: company.postalCode ?? "",
         country: company.country ?? "",
       })),
     );

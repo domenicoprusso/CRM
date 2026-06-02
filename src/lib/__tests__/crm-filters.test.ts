@@ -13,10 +13,12 @@ describe("CRM filters", () => {
   });
 
   it("builds company where clauses with tag and project filters", () => {
-    const where = buildCompanyWhere({ tag: "Scuole", project: "Scuole Roma", owner: "me" }, user);
+    const where = buildCompanyWhere({ tag: "Scuole", project: "Scuole Roma", owner: "me", region: "Lombardia", province: "MI" }, user);
 
     expect(where.tenantId).toBe("tenant-1");
     expect(where.ownerId).toBe("user-1");
+    expect(where.region).toEqual({ contains: "Lombardia", mode: "insensitive" });
+    expect(where.province).toEqual({ contains: "MI", mode: "insensitive" });
     expect(where.tags).toEqual({ hasSome: ["Scuole"] });
     expect(where.AND).toEqual([{ tags: { hasSome: ["project:scuole-roma"] } }]);
   });

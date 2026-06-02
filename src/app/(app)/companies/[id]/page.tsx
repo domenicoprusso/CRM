@@ -54,9 +54,13 @@ export default async function CompanyDetailPage({ params, searchParams }: PagePr
       <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
         <div className="space-y-6">
           <Card>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-4">
               <FieldValue label="Owner" value={company.owner?.name ?? "N/D"} />
               <FieldValue label="Settore" value={company.industry ?? "N/D"} />
+              <FieldValue label="Città" value={company.city ?? "N/D"} />
+              <FieldValue label="Provincia" value={company.province ?? "N/D"} />
+              <FieldValue label="Regione" value={company.region ?? "N/D"} />
+              <FieldValue label="CAP" value={company.postalCode ?? "N/D"} />
               <FieldValue label="Paese" value={company.country ?? "N/D"} />
               <FieldValue label="Email" value={company.email ?? "N/D"} />
               <FieldValue label="Telefono" value={company.phone ?? "N/D"} />
@@ -133,6 +137,9 @@ export default async function CompanyDetailPage({ params, searchParams }: PagePr
               <input name="address" defaultValue={company.address ?? ""} placeholder="Indirizzo" />
               <div className="grid gap-3 md:grid-cols-2">
                 <input name="city" defaultValue={company.city ?? ""} placeholder="Citta" />
+                <input name="province" defaultValue={company.province ?? ""} placeholder="Provincia" />
+                <input name="region" defaultValue={company.region ?? ""} placeholder="Regione" />
+                <input name="postalCode" defaultValue={company.postalCode ?? ""} placeholder="CAP" />
                 <input name="country" defaultValue={company.country ?? ""} placeholder="Paese" />
               </div>
               <input name="tags" defaultValue={company.tags.join(", ")} placeholder="Tag separati da virgola" />

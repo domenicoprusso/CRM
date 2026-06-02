@@ -22,6 +22,8 @@ export function parseCompanyFilters(params: SearchParamsInput) {
     q: readParam(params, "q"),
     owner: readParam(params, "owner"),
     industry: readParam(params, "industry"),
+    region: readParam(params, "region"),
+    province: readParam(params, "province"),
     country: readParam(params, "country"),
     tag: normalizeTagList(readParam(params, "tag")),
     project: projectTagsFromValue(readParam(params, "project")),
@@ -35,6 +37,8 @@ export function buildCompanyWhere(params: SearchParamsInput, user: CurrentUser):
   if (filters.owner === "me") where.ownerId = user.id;
   else if (filters.owner) where.ownerId = filters.owner;
   if (filters.industry) where.industry = contains(filters.industry);
+  if (filters.region) where.region = contains(filters.region);
+  if (filters.province) where.province = contains(filters.province);
   if (filters.country) where.country = contains(filters.country);
   if (filters.tag.length > 0) where.tags = tagContains(filters.tag);
   if (filters.project.length > 0) {
@@ -47,6 +51,8 @@ export function buildCompanyWhere(params: SearchParamsInput, user: CurrentUser):
       { email: contains(filters.q) },
       { phone: contains(filters.q) },
       { city: contains(filters.q) },
+      { province: contains(filters.q) },
+      { region: contains(filters.q) },
       { country: contains(filters.q) },
       { notes: contains(filters.q) },
     ];

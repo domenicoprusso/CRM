@@ -43,6 +43,9 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
             <input name="phone" placeholder="Telefono" />
             <div className="grid gap-3 md:grid-cols-2">
               <input name="city" placeholder="Citta" />
+              <input name="province" placeholder="Provincia" />
+              <input name="region" placeholder="Regione" />
+              <input name="postalCode" placeholder="CAP" />
               <input name="country" placeholder="Paese" />
             </div>
             <input name="tags" placeholder="Tag separati da virgola" list="tag-suggestions" />
@@ -55,7 +58,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
         </Card>
         <div className="space-y-6">
           <Card>
-            <form className="grid gap-3 lg:grid-cols-[1fr_160px_160px_160px_160px_200px_auto_auto] lg:items-end">
+            <form className="grid gap-3 lg:grid-cols-[1fr_160px_160px_160px_160px_160px_160px_160px_auto_auto] lg:items-end">
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Cerca
                 <input name="q" defaultValue={filters.q ?? ""} placeholder="Nome, email, citta..." />
@@ -63,6 +66,14 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Settore
                 <input name="industry" defaultValue={filters.industry ?? ""} placeholder="Settore" />
+              </label>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Regione
+                <input name="region" defaultValue={filters.region ?? ""} placeholder="Lombardia" />
+              </label>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Provincia
+                <input name="province" defaultValue={filters.province ?? ""} placeholder="MI" />
               </label>
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Paese
@@ -112,6 +123,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
                     <tr>
                       <th className="px-6 py-3">Azienda</th>
                       <th className="px-6 py-3">Settore</th>
+                      <th className="px-6 py-3">Località</th>
                       <th className="px-6 py-3">Tag</th>
                       <th className="px-6 py-3">Progetto</th>
                       <th className="px-6 py-3">Contatti</th>
@@ -132,6 +144,14 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
                             <p className="font-normal text-slate-500">{company.email ?? company.phone ?? "N/D"}</p>
                           </td>
                           <td className="px-6 py-4">{company.industry ?? "N/D"}</td>
+                          <td className="px-6 py-4">
+                            <div className="space-y-1">
+                              <p className="font-medium text-slate-950">
+                                {company.city ? `${company.city}${company.province ? ` (${company.province})` : ""}` : "N/D"}
+                              </p>
+                              <p className="text-slate-500">{company.region ?? "N/D"}</p>
+                            </div>
+                          </td>
                           <td className="px-6 py-4">
                             <div className="flex flex-wrap gap-1">
                               {freeTags.length > 0

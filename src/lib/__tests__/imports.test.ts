@@ -71,14 +71,17 @@ describe("import helpers", () => {
     tokens[12] = "Importazione 30/11/2021 18:00";
     tokens[13] = "Referente: DSGA";
     tokens[22] = "via Della Comunicazione 7";
+    tokens[23] = "Lombardia";
     tokens[24] = "Italia";
+    tokens[25] = "20100";
+    tokens[26] = "MI";
     tokens[35] = "Scuole;PNRR";
 
     const line = `"${tokens.join('""')}"`;
     const parsed = parseTeamSystemCompanyExport(`header\n${line}`);
 
     expect(looksLikeTeamSystemCompanyExport(`header\n${line}`)).toBe(true);
-    expect(parsed.headers).toEqual(["externalId", "name", "industry", "website", "phone", "email", "address", "city", "country", "owner", "tags", "notes"]);
+    expect(parsed.headers).toEqual(["externalId", "name", "industry", "website", "phone", "email", "address", "city", "province", "region", "postalCode", "country", "owner", "tags", "notes"]);
     expect(parsed.rows).toHaveLength(1);
     expect(parsed.rows[0]).toEqual([
       "245544",
@@ -89,6 +92,9 @@ describe("import helpers", () => {
       "info@bitcall.it",
       "via Della Comunicazione 7",
       "San Cesareo",
+      "MI",
+      "Lombardia",
+      "20100",
       "Italia",
       "",
       "project:scuole-roma,Scuole,PNRR",

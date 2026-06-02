@@ -124,6 +124,69 @@ function extractQuotedValues(line: string) {
   return [...line.matchAll(/"([^"]*)"/g)].map((match) => match[1]);
 }
 
+function buildHeaderLookup(headers: string[]) {
+  const lookup = new Map<string, number>();
+  headers.forEach((header, index) => {
+    const normalized = normalizeHeader(header);
+    if (normalized && !lookup.has(normalized)) lookup.set(normalized, index);
+  });
+  return lookup;
+}
+
+function readTeamSystemValue(values: string[], headerLookup: Map<string, number>, aliases: string[], fallbackPosition: number) {
+  for (const alias of aliases) {
+    const index = headerLookup.get(normalizeHeader(alias));
+    if (index !== undefined) {
+      const value = values[index]?.trim();
+      if (value) return value;
+    }
+  }
+  return values[fallbackPosition - 1]?.trim() ?? "";
+}
+
+function inferTeamSystemGeography(values: string[], headerLookup: Map<string, number>) {
+  const countryAliases = ["country", "nazione", "paese", "nation", "natione"];
+  const readHeaderOnly = (aliases: string[]) => {
+    for (const alias of aliases) {
+      const index = headerLookup.get(normalizeHeader(alias));
+      if (index !== undefined) {
+        const value = values[index]?.trim();
+        if (value) return value;
+      }
+    }
+    return "";
+  };
+  const region = readHeaderOnly(["region", "regione"]);
+  const province = readHeaderOnly(["province", "provincia"]);
+  const postalCode = readHeaderOnly(["postalCode", "postal_code", "cap", "cap_azienda", "zip", "zip_code"]);
+  const country = readTeamSystemValue(values, headerLookup, countryAliases, 25);
+
+  const candidateRange = values
+    .slice(23, 30)
+    .map((value, index) => ({ position: index + 24, value: value.trim() }))
+    .filter((entry) => entry.value.length > 0 && entry.value !== country);
+
+  const inferredPostalCode =
+    postalCode ||
+    candidateRange.find((entry) => /^\d{4,5}$/.test(entry.value))?.value ||
+    "";
+  const inferredProvince =
+    province ||
+    candidateRange.find((entry) => /^[A-Z]{2}$/i.test(entry.value))?.value.toUpperCase() ||
+    "";
+  const inferredRegion =
+    region ||
+    candidateRange.find((entry) => entry.value !== inferredPostalCode && entry.value !== inferredProvince && !/^\d{4,5}$/.test(entry.value) && entry.value.toLowerCase() !== country.toLowerCase())?.value ||
+    "";
+
+  return {
+    region: inferredRegion || null,
+    province: inferredProvince || null,
+    postalCode: inferredPostalCode || null,
+    country: country || null,
+  };
+}
+
 export function looksLikeTeamSystemCompanyExport(text: string) {
   const cleaned = text.replace(/^\uFEFF/, "");
   return cleaned.includes("IDAVATAR_COMPANY_ID") || cleaned.includes("Codice_x0020_azienda") || cleaned.split(/\r?\n/).some((line) => extractQuotedValues(line).length >= 50);
@@ -133,8 +196,9 @@ export function parseTeamSystemCompanyExport(text: string): ParsedCsv {
   const cleaned = text.replace(/^\uFEFF/, "");
   const lines = cleaned.split(/\r?\n/).filter((line) => line.trim().length > 0);
   const startIndex = extractQuotedValues(lines[0] ?? "").length >= 50 ? 0 : 1;
+  const headerLookup = startIndex === 1 ? buildHeaderLookup(extractQuotedValues(lines[0] ?? "")) : new Map<string, number>();
   const dataLines = lines.slice(startIndex).filter((line) => extractQuotedValues(line).length > 0);
-  const headers = ["externalId", "name", "industry", "website", "phone", "email", "address", "city", "country", "owner", "tags", "notes"];
+  const headers = ["externalId", "name", "industry", "website", "phone", "email", "address", "city", "province", "region", "postalCode", "country", "owner", "tags", "notes"];
   const rows = dataLines.map((line) => {
     const values = extractQuotedValues(line);
     const fieldAt = (position: number) => values[position - 1] ?? "";
@@ -146,6 +210,7 @@ export function parseTeamSystemCompanyExport(text: string): ParsedCsv {
       .map((value) => value.trim())
       .filter(Boolean)
       .join(" | ");
+    const geo = inferTeamSystemGeography(values, headerLookup);
 
     return [
       fieldAt(1),
@@ -156,7 +221,10 @@ export function parseTeamSystemCompanyExport(text: string): ParsedCsv {
       emails[0] ?? "",
       fieldAt(23),
       fieldAt(6),
-      fieldAt(25),
+      geo.province ?? "",
+      geo.region ?? "",
+      geo.postalCode ?? "",
+      geo.country ?? "",
       "",
       [...projectTags, ...structuredTags].join(","),
       notes,
@@ -398,6 +466,9 @@ function companyAliases() {
     email: ["email", "mail"],
     address: ["address", "indirizzo"],
     city: ["city", "citta", "citta"],
+    province: ["province", "provincia"],
+    region: ["region", "regione"],
+    postalCode: ["postalCode", "postal_code", "cap", "zip", "zip_code"],
     country: ["country", "paese", "nazione"],
     owner: ["owner", "responsabile", "sales_owner", "commerciale"],
     tags: ["tags", "tag"],
@@ -555,6 +626,9 @@ function mapCompanyRow(row: Record<string, string>, mapping: Record<string, stri
     email: normalizeText(readMappedValue(row, mapping, "email")) || null,
     address: normalizeText(readMappedValue(row, mapping, "address")) || null,
     city: normalizeText(readMappedValue(row, mapping, "city")) || null,
+    province: normalizeText(readMappedValue(row, mapping, "province")) || null,
+    region: normalizeText(readMappedValue(row, mapping, "region")) || null,
+    postalCode: normalizeText(readMappedValue(row, mapping, "postalCode")) || null,
     country: normalizeText(readMappedValue(row, mapping, "country")) || null,
     ownerId: owner,
     tags: splitTags(readMappedValue(row, mapping, "tags")),
@@ -840,6 +914,9 @@ function entityCreateData(entity: ImportEntity, row: Record<string, unknown>, te
         email: row.email as string | null,
         address: row.address as string | null,
         city: row.city as string | null,
+        province: row.province as string | null,
+        region: row.region as string | null,
+        postalCode: row.postalCode as string | null,
         country: row.country as string | null,
         ownerId: row.ownerId as string | null,
         tags: row.tags as string[],
@@ -944,7 +1021,7 @@ export async function createImportPreview(prismaClient: typeof prisma, tenantId:
 
   const { aliases } = rowMapper(entity);
   const mapping = useTeamSystemCompanyAdapter
-    ? {
+      ? {
         externalId: "externalId",
         name: "name",
         industry: "industry",
@@ -953,6 +1030,9 @@ export async function createImportPreview(prismaClient: typeof prisma, tenantId:
         email: "email",
         address: "address",
         city: "city",
+        province: "province",
+        region: "region",
+        postalCode: "postalCode",
         country: "country",
         owner: "owner",
         tags: "tags",
