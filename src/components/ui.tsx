@@ -2,15 +2,15 @@ import { clsx } from "clsx";
 import Link from "next/link";
 
 export function Card({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <section className={clsx("rounded-3xl border border-slate-200 bg-white p-6 shadow-soft", className)}>{children}</section>;
+  return <section className={clsx("rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-soft", className)}>{children}</section>;
 }
 
 export function StatCard({ label, value, hint }: { label: string; value: string | number; hint: string }) {
   return (
     <Card>
-      <p className="text-sm font-medium text-slate-500">{label}</p>
-      <p className="mt-3 text-3xl font-bold text-slate-950">{value}</p>
-      <p className="mt-2 text-sm text-slate-500">{hint}</p>
+      <p className="text-4xl font-bold tabular-nums text-slate-950">{value}</p>
+      <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p>
+      <p className="mt-3 text-sm text-slate-500">{hint}</p>
     </Card>
   );
 }
@@ -60,7 +60,7 @@ export function Badge({ children, tone = "brand" }: { children: React.ReactNode;
     amber: "bg-amber-50 text-amber-800",
     red: "bg-red-50 text-red-700",
   };
-  return <span className={clsx("inline-flex rounded-full px-3 py-1 text-xs font-semibold", tones[tone])}>{children}</span>;
+  return <span className={clsx("inline-flex rounded-full px-2 py-0.5 text-xs font-semibold", tones[tone])}>{children}</span>;
 }
 
 export function Notice({ message, tone = "slate" }: { message?: string; tone?: "slate" | "success" | "error" }) {
@@ -74,7 +74,7 @@ export function Notice({ message, tone = "slate" }: { message?: string; tone?: "
 }
 
 export function EmptyState({ message }: { message: string }) {
-  return <p className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">{message}</p>;
+  return <p className="py-3 px-1 text-sm text-slate-400">{message}</p>;
 }
 
 export function FieldValue({ label, value }: { label: string; value: React.ReactNode }) {
