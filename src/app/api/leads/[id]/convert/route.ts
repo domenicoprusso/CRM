@@ -39,7 +39,9 @@ export async function POST(request: Request, context: Context) {
         ownerId: lead.ownerId ?? user.id,
       },
     });
-    const convertedLead = await tx.lead.update({ where: { id: lead.id }, data: { status: "CONVERTED" } });
+    const updatedLead = await tx.lead.updateMany({ where: { id: lead.id, tenantId: user.tenantId }, data: { status: "CONVERTED" } });
+    if (updatedLead.count === 0) throw new Error("lead-not-found");
+    const convertedLead = await tx.lead.findFirst({ where: { id: lead.id, tenantId: user.tenantId } });
     await tx.auditLog.create({
       data: {
         tenantId: user.tenantId,

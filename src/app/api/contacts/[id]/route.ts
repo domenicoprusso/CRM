@@ -28,7 +28,10 @@ export async function PATCH(request: Request, context: Context) {
   const parsed = contactUpdateSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
   if (!(await hasCompanyAccess(parsed.data.companyId, user.tenantId))) return NextResponse.json({ error: "Company not found" }, { status: 404 });
-  const contact = await prisma.contact.update({ where: { id }, data: parsed.data });
+  const updated = await prisma.contact.updateMany({ where: { id, tenantId: user.tenantId }, data: parsed.data });
+  if (updated.count === 0) return NextResponse.json({ error: "Contact not found" }, { status: 404 });
+  const contact = await prisma.contact.findFirst({ where: { id, tenantId: user.tenantId } });
+  if (!contact) return NextResponse.json({ error: "Contact not found" }, { status: 404 });
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "UPDATE", entityType: "Contact", entityId: id, before, after: contact });
   return NextResponse.json({ data: contact });
 }
@@ -40,7 +43,8 @@ export async function DELETE(_: Request, context: Context) {
   if (!record) return NextResponse.json({ error: "Contact not found" }, { status: 404 });
   if (blocker) return NextResponse.json({ error: blocker }, { status: 409 });
   try {
-    await prisma.contact.delete({ where: { id } });
+    const deleted = await prisma.contact.deleteMany({ where: { id, tenantId: user.tenantId } });
+    if (deleted.count === 0) return NextResponse.json({ error: "Contact not found" }, { status: 404 });
   } catch {
     return NextResponse.json({ error: "Contact could not be deleted" }, { status: 409 });
   }

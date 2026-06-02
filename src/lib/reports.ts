@@ -1,4 +1,4 @@
-import { Prisma, TaskStatus } from "@prisma/client";
+import { Prisma, TaskPriority, TaskStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { normalizeTagList, projectTagsFromValue } from "@/lib/tagging";
 import { readParam, type SearchParamsInput } from "@/lib/crm-filters";
@@ -236,10 +236,12 @@ export function buildTaskRows(rows: Array<{ ownerId: string | null; count: numbe
 }
 
 export function buildConversionMetrics(leadsCreated: number, convertedOpportunities: number) {
+  const conversionRate = leadsCreated > 0 ? convertedOpportunities / leadsCreated : 0;
+
   return {
     leadsCreated,
     opportunitiesCreatedFromLeads: convertedOpportunities,
-    conversionRate: leadsCreated > 0 ? convertedOpportunities / leadsCreated : 0,
+    conversionRate: Math.min(conversionRate, 1),
   };
 }
 
@@ -288,7 +290,7 @@ export async function getReportSnapshot(prismaClient: typeof prisma, tenantId: s
   };
   const opportunityOwnerWhere = filters.ownerId ? { ownerId: filters.ownerId } : {};
 
-  const [users, stages, leadsCreated, convertedOpps, closedWon, closedLost, openOpps, noActionOpps, activitiesByOwner, overdueTasksByOwnerRaw] = await Promise.all([
+  const [users, stages, leadsCreated, convertedOpps, closedWon, closedLost, openOpps, noActionOpps, activitiesByOwner, overdueTasksByOwnerRaw, urgentTasksByOwnerRaw] = await Promise.all([
     prismaClient.user.findMany({ where: { tenantId, isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prismaClient.pipelineStage.findMany({ where: { tenantId }, orderBy: { order: "asc" } }),
     prismaClient.lead.count({ where: leadTag ? (withAndClause(periodWhere, leadTag) as Prisma.LeadWhereInput) : periodWhere }),
@@ -324,8 +326,17 @@ export async function getReportSnapshot(prismaClient: typeof prisma, tenantId: s
       where: taskTag ? (withAndClause(taskOverdueWhere, taskTag) as Prisma.TaskWhereInput) : taskOverdueWhere,
       _count: { _all: true },
     }),
+    prismaClient.task.groupBy({
+      by: ["ownerId"],
+      where: taskTag
+        ? (withAndClause({ ...taskOverdueWhere, priority: TaskPriority.URGENT } as Prisma.TaskWhereInput, taskTag) as Prisma.TaskWhereInput)
+        : { ...taskOverdueWhere, priority: TaskPriority.URGENT },
+      _count: { _all: true },
+    }),
   ]);
   const overdueTasksByOwner = overdueTasksByOwnerRaw as Array<{ ownerId: string | null; _count: { _all: number } }>;
+  const urgentTasksByOwner = urgentTasksByOwnerRaw as Array<{ ownerId: string | null; _count: { _all: number } }>;
+  const urgentTasksByOwnerMap = new Map(urgentTasksByOwner.map((row) => [row.ownerId ?? "unassigned", row._count._all]));
 
   const openStages = stages.filter((stage) => !stage.isWon && !stage.isLost);
   const pipelineRows = buildPipelineRows(
@@ -345,7 +356,7 @@ export async function getReportSnapshot(prismaClient: typeof prisma, tenantId: s
     overdueTasksByOwner.map((row) => ({
       ownerId: row.ownerId,
       count: row._count._all,
-      urgentCount: 0,
+      urgentCount: urgentTasksByOwnerMap.get(row.ownerId ?? "unassigned") ?? 0,
     })),
     users,
   );

@@ -95,10 +95,13 @@ export async function updateActivity(formData: FormData) {
   await assertRelatedRecord(user.tenantId, `/activities/${id}`, "lead", parsed.leadId);
   await assertRelatedRecord(user.tenantId, `/activities/${id}`, "opportunity", parsed.opportunityId);
 
-  const activity = await prisma.activity.update({
-    where: { id },
+  const updated = await prisma.activity.updateMany({
+    where: { id, tenantId: user.tenantId },
     data: normalizeActivityData(parsed, before),
   });
+  if (updated.count === 0) redirect("/activities?error=not-found");
+  const activity = await prisma.activity.findFirst({ where: { id, tenantId: user.tenantId } });
+  if (!activity) redirect("/activities?error=not-found");
 
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "UPDATE", entityType: "Activity", entityId: id, before, after: activity });
   revalidatePath("/activities");
@@ -120,7 +123,8 @@ export async function deleteActivity(formData: FormData) {
   if (!before) redirect("/activities?error=not-found");
 
   try {
-    await prisma.activity.delete({ where: { id } });
+    const deleted = await prisma.activity.deleteMany({ where: { id, tenantId: user.tenantId } });
+    if (deleted.count === 0) redirect("/activities?error=not-found");
   } catch {
     redirect(`/activities/${id}?error=delete-failed`);
   }

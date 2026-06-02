@@ -51,6 +51,7 @@ describe("report helpers", () => {
       opportunitiesCreatedFromLeads: 5,
       conversionRate: 0.25,
     });
+    expect(buildConversionMetrics(2, 3).conversionRate).toBe(1);
 
     expect(buildWonLostMetrics(8, 2)).toEqual({
       closedWon: 8,
@@ -71,12 +72,13 @@ describe("report helpers", () => {
       ],
     );
     const taskRows = buildTaskRows(
-      [{ ownerId: "u1", count: 2, urgentCount: 0 }],
+      [{ ownerId: "u1", count: 2, urgentCount: 1 }],
       [{ id: "u1", name: "Alice" }],
     );
 
     expect(rows[0].ownerName).toBe("Alice");
     expect(taskRows[0].count).toBe(2);
+    expect(taskRows[0].urgentCount).toBe(1);
     expect(toCsv(["a", "b"], [{ a: "hello", b: "x,y" }])).toContain('"x,y"');
   });
 });

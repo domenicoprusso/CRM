@@ -36,7 +36,10 @@ export async function updateContact(formData: FormData) {
 
   const parsed = contactSchema.parse(Object.fromEntries(formData));
   await assertCompanyAccess(parsed.companyId, user.tenantId, `/contacts/${id}`);
-  const contact = await prisma.contact.update({ where: { id }, data: parsed });
+  const updated = await prisma.contact.updateMany({ where: { id, tenantId: user.tenantId }, data: parsed });
+  if (updated.count === 0) redirect("/contacts?error=not-found");
+  const contact = await prisma.contact.findFirst({ where: { id, tenantId: user.tenantId } });
+  if (!contact) redirect("/contacts?error=not-found");
 
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "UPDATE", entityType: "Contact", entityId: id, before, after: contact });
   revalidatePath("/contacts");
@@ -54,7 +57,8 @@ export async function deleteContact(formData: FormData) {
   if (blocker) redirect(`/contacts/${id}?error=delete-linked`);
 
   try {
-    await prisma.contact.delete({ where: { id } });
+    const deleted = await prisma.contact.deleteMany({ where: { id, tenantId: user.tenantId } });
+    if (deleted.count === 0) redirect("/contacts?error=not-found");
   } catch {
     redirect(`/contacts/${id}?error=delete-failed`);
   }

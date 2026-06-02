@@ -101,7 +101,10 @@ export async function updateOpportunity(formData: FormData) {
   await assertContactAccess(parsed.contactId, user.tenantId, `/opportunities/${id}`);
   await assertSourceLeadAccess(parsed.sourceLeadId, user.tenantId, `/opportunities/${id}`);
 
-  const opportunity = await prisma.opportunity.update({ where: { id }, data: toOpportunityData(parsed, stage.id) });
+  const updated = await prisma.opportunity.updateMany({ where: { id, tenantId: user.tenantId }, data: toOpportunityData(parsed, stage.id) });
+  if (updated.count === 0) redirect("/opportunities?error=not-found");
+  const opportunity = await prisma.opportunity.findFirst({ where: { id, tenantId: user.tenantId } });
+  if (!opportunity) redirect("/opportunities?error=not-found");
 
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "UPDATE", entityType: "Opportunity", entityId: id, before, after: opportunity });
   revalidatePath("/opportunities");
@@ -120,7 +123,8 @@ export async function deleteOpportunity(formData: FormData) {
   if (blocker) redirect(`/opportunities/${id}?error=delete-linked`);
 
   try {
-    await prisma.opportunity.delete({ where: { id } });
+    const deleted = await prisma.opportunity.deleteMany({ where: { id, tenantId: user.tenantId } });
+    if (deleted.count === 0) redirect("/opportunities?error=not-found");
   } catch {
     redirect(`/opportunities/${id}?error=delete-failed`);
   }
@@ -141,7 +145,10 @@ export async function moveOpportunity(formData: FormData) {
   const nextStage = await getAdjacentStage(user.tenantId, before.stage.order, direction);
   if (!nextStage) redirect("/pipeline");
 
-  const opportunity = await prisma.opportunity.update({ where: { id }, data: { stageId: nextStage.id, probability: nextStage.probability } });
+  const updated = await prisma.opportunity.updateMany({ where: { id, tenantId: user.tenantId }, data: { stageId: nextStage.id, probability: nextStage.probability } });
+  if (updated.count === 0) redirect("/pipeline?error=not-found");
+  const opportunity = await prisma.opportunity.findFirst({ where: { id, tenantId: user.tenantId } });
+  if (!opportunity) redirect("/pipeline?error=not-found");
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "MOVE", entityType: "Opportunity", entityId: id, before, after: opportunity });
   revalidatePath("/opportunities");
   revalidatePath("/pipeline");
@@ -159,7 +166,10 @@ export async function setOpportunityOutcome(formData: FormData) {
   const stage = outcome === "lost" ? getLostStage(stages) : getWonStage(stages);
   if (!stage) redirect(`/opportunities/${id}?error=missing-stage`);
 
-  const opportunity = await prisma.opportunity.update({ where: { id }, data: { stageId: stage.id, probability: stage.probability } });
+  const updated = await prisma.opportunity.updateMany({ where: { id, tenantId: user.tenantId }, data: { stageId: stage.id, probability: stage.probability } });
+  if (updated.count === 0) redirect("/opportunities?error=not-found");
+  const opportunity = await prisma.opportunity.findFirst({ where: { id, tenantId: user.tenantId } });
+  if (!opportunity) redirect("/opportunities?error=not-found");
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: outcome === "lost" ? "MARK_LOST" : "MARK_WON", entityType: "Opportunity", entityId: id, before, after: opportunity });
   revalidatePath("/opportunities");
   revalidatePath("/pipeline");
@@ -189,7 +199,9 @@ export async function convertLeadToOpportunity(formData: FormData) {
         ownerId: lead.ownerId ?? user.id,
       },
     });
-    const convertedLead = await tx.lead.update({ where: { id: lead.id }, data: { status: "CONVERTED" } });
+    const updatedLead = await tx.lead.updateMany({ where: { id: lead.id, tenantId: user.tenantId }, data: { status: "CONVERTED" } });
+    if (updatedLead.count === 0) throw new Error("lead-not-found");
+    const convertedLead = await tx.lead.findFirst({ where: { id: lead.id, tenantId: user.tenantId } });
     await tx.auditLog.create({
       data: {
         tenantId: user.tenantId,

@@ -44,7 +44,10 @@ export async function PATCH(request: Request, context: Context) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
   if (!(await hasCompanyAccess(parsed.data.companyId, user.tenantId))) return NextResponse.json({ error: "Company not found" }, { status: 404 });
   if (!(await hasContactAccess(parsed.data.contactId, user.tenantId))) return NextResponse.json({ error: "Contact not found" }, { status: 404 });
-  const lead = await prisma.lead.update({ where: { id }, data: toLeadData(parsed.data) });
+  const updated = await prisma.lead.updateMany({ where: { id, tenantId: user.tenantId }, data: toLeadData(parsed.data) });
+  if (updated.count === 0) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+  const lead = await prisma.lead.findFirst({ where: { id, tenantId: user.tenantId } });
+  if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "UPDATE", entityType: "Lead", entityId: id, before, after: lead });
   return NextResponse.json({ data: lead });
 }
@@ -56,7 +59,8 @@ export async function DELETE(_: Request, context: Context) {
   if (!record) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
   if (blocker) return NextResponse.json({ error: blocker }, { status: 409 });
   try {
-    await prisma.lead.delete({ where: { id } });
+    const deleted = await prisma.lead.deleteMany({ where: { id, tenantId: user.tenantId } });
+    if (deleted.count === 0) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
   } catch {
     return NextResponse.json({ error: "Lead could not be deleted" }, { status: 409 });
   }

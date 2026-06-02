@@ -110,10 +110,13 @@ export async function updateTask(formData: FormData) {
   await assertRelatedRecord(user.tenantId, `/tasks/${id}`, "lead", parsed.leadId);
   await assertRelatedRecord(user.tenantId, `/tasks/${id}`, "opportunity", parsed.opportunityId);
 
-  const task = await prisma.task.update({
-    where: { id },
+  const updated = await prisma.task.updateMany({
+    where: { id, tenantId: user.tenantId },
     data: normalizeTaskData(parsed, user.id, before),
   });
+  if (updated.count === 0) redirect("/tasks?error=not-found");
+  const task = await prisma.task.findFirst({ where: { id, tenantId: user.tenantId } });
+  if (!task) redirect("/tasks?error=not-found");
 
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "UPDATE", entityType: "Task", entityId: id, before, after: task });
   revalidatePath("/tasks");
@@ -132,10 +135,13 @@ export async function completeTask(formData: FormData) {
   const before = await prisma.task.findFirst({ where: { id, tenantId: user.tenantId } });
   if (!before) redirect("/tasks?error=not-found");
 
-  const task = await prisma.task.update({
-    where: { id },
+  const updated = await prisma.task.updateMany({
+    where: { id, tenantId: user.tenantId },
     data: { status: TaskStatus.DONE, completedAt: new Date() },
   });
+  if (updated.count === 0) redirect("/tasks?error=not-found");
+  const task = await prisma.task.findFirst({ where: { id, tenantId: user.tenantId } });
+  if (!task) redirect("/tasks?error=not-found");
 
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "COMPLETE", entityType: "Task", entityId: id, before, after: task });
   revalidatePath("/tasks");
@@ -150,10 +156,13 @@ export async function reopenTask(formData: FormData) {
   const before = await prisma.task.findFirst({ where: { id, tenantId: user.tenantId } });
   if (!before) redirect("/tasks?error=not-found");
 
-  const task = await prisma.task.update({
-    where: { id },
+  const updated = await prisma.task.updateMany({
+    where: { id, tenantId: user.tenantId },
     data: { status: TaskStatus.TODO, completedAt: null },
   });
+  if (updated.count === 0) redirect("/tasks?error=not-found");
+  const task = await prisma.task.findFirst({ where: { id, tenantId: user.tenantId } });
+  if (!task) redirect("/tasks?error=not-found");
 
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "REOPEN", entityType: "Task", entityId: id, before, after: task });
   revalidatePath("/tasks");
@@ -171,7 +180,8 @@ export async function deleteTask(formData: FormData) {
   if (!record) redirect("/tasks?error=not-found");
 
   try {
-    await prisma.task.delete({ where: { id } });
+    const deleted = await prisma.task.deleteMany({ where: { id, tenantId: user.tenantId } });
+    if (deleted.count === 0) redirect("/tasks?error=not-found");
   } catch {
     redirect(`/tasks/${id}?error=delete-failed`);
   }

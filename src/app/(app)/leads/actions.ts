@@ -61,7 +61,10 @@ export async function updateLead(formData: FormData) {
   const parsed = leadSchema.parse(Object.fromEntries(formData));
   await assertCompanyAccess(parsed.companyId, user.tenantId, `/leads/${id}`);
   await assertContactAccess(parsed.contactId, user.tenantId, `/leads/${id}`);
-  const lead = await prisma.lead.update({ where: { id }, data: toLeadData(parsed) });
+  const updated = await prisma.lead.updateMany({ where: { id, tenantId: user.tenantId }, data: toLeadData(parsed) });
+  if (updated.count === 0) redirect("/leads?error=not-found");
+  const lead = await prisma.lead.findFirst({ where: { id, tenantId: user.tenantId } });
+  if (!lead) redirect("/leads?error=not-found");
 
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "UPDATE", entityType: "Lead", entityId: id, before, after: lead });
   revalidatePath("/leads");
@@ -79,7 +82,8 @@ export async function deleteLead(formData: FormData) {
   if (blocker) redirect(`/leads/${id}?error=delete-linked`);
 
   try {
-    await prisma.lead.delete({ where: { id } });
+    const deleted = await prisma.lead.deleteMany({ where: { id, tenantId: user.tenantId } });
+    if (deleted.count === 0) redirect("/leads?error=not-found");
   } catch {
     redirect(`/leads/${id}?error=delete-failed`);
   }

@@ -1048,14 +1048,14 @@ export async function executeImportJob(prismaClient: typeof prisma, tenantId: st
     if (created.externalId) {
       existingMaps.external.set(toLookupKey(created.externalId), created.id);
     }
-    await prismaClient.importRow.update({
-      where: { id: row.id },
+    await prismaClient.importRow.updateMany({
+      where: { id: row.id, importJob: { tenantId } },
       data: { importedEntity: importedEntityName(entity), importedEntityId: created.id, normalizedData: { ...freshNormalized, meta: { ...(freshNormalized.meta as Record<string, unknown>), state: "imported" } } },
     });
   }
 
-  await prismaClient.importJob.update({
-    where: { id: job.id },
+  await prismaClient.importJob.updateMany({
+    where: { id: job.id, tenantId },
     data: {
       status: "COMPLETED",
       rowsImported,
@@ -1103,8 +1103,8 @@ export async function rollbackImportJob(prismaClient: typeof prisma, tenantId: s
     }
   }
 
-  await prismaClient.importJob.update({
-    where: { id: job.id },
+  await prismaClient.importJob.updateMany({
+    where: { id: job.id, tenantId },
     data: {
       status: "ROLLED_BACK",
       rollbackToken: job.rollbackToken ?? randomUUID(),

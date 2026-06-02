@@ -201,6 +201,7 @@ model Lead {
 
   @@index([tenantId, status])
   @@index([tenantId, score])
+  @@index([tenantId, ownerId])
   @@unique([tenantId, externalId])
 }
 
@@ -251,6 +252,7 @@ model Opportunity {
 
   @@index([tenantId, stageId])
   @@index([tenantId, expectedCloseDate])
+  @@index([tenantId, ownerId])
   @@unique([tenantId, externalId])
 }
 
@@ -276,6 +278,10 @@ model Activity {
   opportunity Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, occurredAt])
+  @@index([tenantId, companyId])
+  @@index([tenantId, contactId])
+  @@index([tenantId, leadId])
+  @@index([tenantId, opportunityId])
   @@unique([tenantId, externalId])
 }
 
@@ -310,6 +316,7 @@ model Task {
   @@index([tenantId, companyId])
   @@index([tenantId, reminderAt])
   @@index([ownerId, status])
+  @@index([tenantId, ownerId, status])
   @@unique([tenantId, externalId])
 }
 
@@ -359,6 +366,7 @@ model ImportJob {
   rows   ImportRow[]
 
   @@index([tenantId, status])
+  @@index([tenantId, createdById])
 }
 
 model ImportRow {
@@ -407,4 +415,5 @@ model AuditLog {
   user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, createdAt])
+  @@index([tenantId, entityType, entityId])
 }

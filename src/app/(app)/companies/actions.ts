@@ -28,7 +28,10 @@ export async function updateCompany(formData: FormData) {
   if (!before) redirect("/companies?error=not-found");
 
   const parsed = companySchema.parse(Object.fromEntries(formData));
-  const company = await prisma.company.update({ where: { id }, data: parsed });
+  const updated = await prisma.company.updateMany({ where: { id, tenantId: user.tenantId }, data: parsed });
+  if (updated.count === 0) redirect("/companies?error=not-found");
+  const company = await prisma.company.findFirst({ where: { id, tenantId: user.tenantId } });
+  if (!company) redirect("/companies?error=not-found");
 
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "UPDATE", entityType: "Company", entityId: id, before, after: company });
   revalidatePath("/companies");
@@ -46,7 +49,8 @@ export async function deleteCompany(formData: FormData) {
   if (blocker) redirect(`/companies/${id}?error=delete-linked`);
 
   try {
-    await prisma.company.delete({ where: { id } });
+    const deleted = await prisma.company.deleteMany({ where: { id, tenantId: user.tenantId } });
+    if (deleted.count === 0) redirect("/companies?error=not-found");
   } catch {
     redirect(`/companies/${id}?error=delete-failed`);
   }

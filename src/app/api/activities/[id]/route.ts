@@ -45,8 +45,8 @@ export async function PATCH(request: Request, { params }: Params) {
   if (!(await assertRelatedRecord(user.tenantId, "lead", parsed.leadId))) return NextResponse.json({ error: "invalid-lead" }, { status: 400 });
   if (!(await assertRelatedRecord(user.tenantId, "opportunity", parsed.opportunityId))) return NextResponse.json({ error: "invalid-opportunity" }, { status: 400 });
 
-  const activity = await prisma.activity.update({
-    where: { id },
+  const updated = await prisma.activity.updateMany({
+    where: { id, tenantId: user.tenantId },
     data: {
       type: parsed.type ?? before.type,
       subject: parsed.subject ?? before.subject,
@@ -57,8 +57,13 @@ export async function PATCH(request: Request, { params }: Params) {
       leadId: parsed.leadId === undefined ? before.leadId : parsed.leadId,
       opportunityId: parsed.opportunityId === undefined ? before.opportunityId : parsed.opportunityId,
     },
+  });
+  if (updated.count === 0) return NextResponse.json({ error: "not-found" }, { status: 404 });
+  const activity = await prisma.activity.findFirst({
+    where: { id, tenantId: user.tenantId },
     include: { user: true, company: true, contact: true, lead: true, opportunity: true },
   });
+  if (!activity) return NextResponse.json({ error: "not-found" }, { status: 404 });
 
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "UPDATE", entityType: "Activity", entityId: id, before, after: activity });
   return NextResponse.json({ activity });
@@ -73,7 +78,8 @@ export async function DELETE(request: Request, { params }: Params) {
   const activity = await prisma.activity.findFirst({ where: { id, tenantId: user.tenantId } });
   if (!activity) return NextResponse.json({ error: "not-found" }, { status: 404 });
 
-  await prisma.activity.delete({ where: { id } });
+  const deleted = await prisma.activity.deleteMany({ where: { id, tenantId: user.tenantId } });
+  if (deleted.count === 0) return NextResponse.json({ error: "not-found" }, { status: 404 });
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "DELETE", entityType: "Activity", entityId: id, before: activity });
   return NextResponse.json({ ok: true });
 }

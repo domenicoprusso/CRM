@@ -2,7 +2,7 @@ import { TaskStatus, type PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { NotificationCategoryId, NotificationItem, NotificationSection } from "@/lib/notification-types";
 
-const NOTIFICATION_OPEN_TASK_STATUSES: TaskStatus[] = [TaskStatus.DONE, TaskStatus.CANCELLED];
+const CLOSED_TASK_STATUSES: TaskStatus[] = [TaskStatus.DONE, TaskStatus.CANCELLED];
 
 function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -174,7 +174,7 @@ export async function getNotificationSnapshot(prismaClient: PrismaClient | typeo
     prismaClient.task.findMany({
       where: {
         tenantId,
-        status: { notIn: NOTIFICATION_OPEN_TASK_STATUSES },
+        status: { notIn: CLOSED_TASK_STATUSES },
         dueAt: { lt: todayStart },
       },
       include: { company: true, contact: true, lead: true, opportunity: true },
@@ -184,7 +184,7 @@ export async function getNotificationSnapshot(prismaClient: PrismaClient | typeo
     prismaClient.task.findMany({
       where: {
         tenantId,
-        status: { notIn: NOTIFICATION_OPEN_TASK_STATUSES },
+        status: { notIn: CLOSED_TASK_STATUSES },
         dueAt: { gte: todayStart, lt: tomorrowStart },
       },
       include: { company: true, contact: true, lead: true, opportunity: true },
@@ -194,7 +194,7 @@ export async function getNotificationSnapshot(prismaClient: PrismaClient | typeo
     prismaClient.task.findMany({
       where: {
         tenantId,
-        status: { notIn: NOTIFICATION_OPEN_TASK_STATUSES },
+        status: { notIn: CLOSED_TASK_STATUSES },
         reminderAt: { gte: todayStart, lt: tomorrowStart },
         OR: [{ dueAt: null }, { dueAt: { gte: tomorrowStart } }],
       },
@@ -206,7 +206,7 @@ export async function getNotificationSnapshot(prismaClient: PrismaClient | typeo
       where: {
         tenantId,
         stage: { isWon: false, isLost: false },
-        tasks: { none: { status: { notIn: NOTIFICATION_OPEN_TASK_STATUSES } } },
+        tasks: { none: { status: { notIn: CLOSED_TASK_STATUSES } } },
       },
       include: { company: { select: { name: true } }, owner: { select: { name: true } }, stage: { select: { name: true } } },
       orderBy: [{ updatedAt: "desc" }],

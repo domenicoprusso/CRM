@@ -58,7 +58,10 @@ export async function PATCH(request: Request, context: Context) {
   if (!(await hasSourceLeadAccess(parsed.data.sourceLeadId, user.tenantId))) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
 
   const stage = parsed.data.stageId ? await resolveStage(user.tenantId, parsed.data.stageId) : undefined;
-  const opportunity = await prisma.opportunity.update({ where: { id }, data: toOpportunityData(parsed.data, stage?.id) });
+  const updated = await prisma.opportunity.updateMany({ where: { id, tenantId: user.tenantId }, data: toOpportunityData(parsed.data, stage?.id) });
+  if (updated.count === 0) return NextResponse.json({ error: "Opportunity not found" }, { status: 404 });
+  const opportunity = await prisma.opportunity.findFirst({ where: { id, tenantId: user.tenantId } });
+  if (!opportunity) return NextResponse.json({ error: "Opportunity not found" }, { status: 404 });
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "UPDATE", entityType: "Opportunity", entityId: id, before, after: opportunity });
   return NextResponse.json({ data: opportunity });
 }
@@ -70,7 +73,8 @@ export async function DELETE(_: Request, context: Context) {
   if (!record) return NextResponse.json({ error: "Opportunity not found" }, { status: 404 });
   if (blocker) return NextResponse.json({ error: blocker }, { status: 409 });
   try {
-    await prisma.opportunity.delete({ where: { id } });
+    const deleted = await prisma.opportunity.deleteMany({ where: { id, tenantId: user.tenantId } });
+    if (deleted.count === 0) return NextResponse.json({ error: "Opportunity not found" }, { status: 404 });
   } catch {
     return NextResponse.json({ error: "Opportunity could not be deleted" }, { status: 409 });
   }

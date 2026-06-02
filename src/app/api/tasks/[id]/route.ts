@@ -48,8 +48,8 @@ export async function PATCH(request: Request, { params }: Params) {
 
   const status = parsed.status ?? before.status;
   const reminderAt = parsed.reminderAt === undefined ? before.reminderAt : parsed.reminderAt;
-  const task = await prisma.task.update({
-    where: { id },
+  const updated = await prisma.task.updateMany({
+    where: { id, tenantId: user.tenantId },
     data: {
       title: parsed.title ?? before.title,
       description: parsed.description === undefined ? before.description : parsed.description,
@@ -65,8 +65,13 @@ export async function PATCH(request: Request, { params }: Params) {
       leadId: parsed.leadId === undefined ? before.leadId : parsed.leadId,
       opportunityId: parsed.opportunityId === undefined ? before.opportunityId : parsed.opportunityId,
     },
+  });
+  if (updated.count === 0) return NextResponse.json({ error: "not-found" }, { status: 404 });
+  const task = await prisma.task.findFirst({
+    where: { id, tenantId: user.tenantId },
     include: { owner: true, company: true, contact: true, lead: true, opportunity: true },
   });
+  if (!task) return NextResponse.json({ error: "not-found" }, { status: 404 });
 
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "UPDATE", entityType: "Task", entityId: id, before, after: task });
   return NextResponse.json({ task });
@@ -81,7 +86,8 @@ export async function DELETE(request: Request, { params }: Params) {
   const task = await prisma.task.findFirst({ where: { id, tenantId: user.tenantId } });
   if (!task) return NextResponse.json({ error: "not-found" }, { status: 404 });
 
-  await prisma.task.delete({ where: { id } });
+  const deleted = await prisma.task.deleteMany({ where: { id, tenantId: user.tenantId } });
+  if (deleted.count === 0) return NextResponse.json({ error: "not-found" }, { status: 404 });
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "DELETE", entityType: "Task", entityId: id, before: task });
   return NextResponse.json({ ok: true });
 }
