@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BadgeDollarSign, BarChart3, Building2, KanbanSquare, ListTodo, LogOut, Sun, Target, Upload, UsersRound } from "lucide-react";
@@ -47,7 +48,14 @@ export function AppShell({ children, user }: { children: React.ReactNode; user: 
     <div className="min-h-screen bg-slate-50">
       <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-slate-200 bg-white/90 p-6 backdrop-blur lg:block">
         <div className="mb-10">
-          <div className="rounded-2xl bg-brand-600 px-4 py-3 text-lg font-bold text-white shadow-soft">CRM Pro</div>
+          <Image
+            src="/logo_bitcall.png"
+            alt="BitCall"
+            width={160}
+            height={48}
+            className="h-12 w-auto object-contain"
+            priority
+          />
           <p className="mt-3 text-sm text-slate-500">Workspace scalabile per vendite, supporto e customer success.</p>
         </div>
         <nav className="space-y-1">
@@ -81,7 +89,7 @@ export function AppShell({ children, user }: { children: React.ReactNode; user: 
             <NotificationBell tenantId={user.tenantId} userId={user.id} />
             <div className="hidden text-right sm:block">
               <p className="text-sm font-semibold text-slate-900">{user.name}</p>
-              <p className="text-xs text-slate-500">{user.role.toLowerCase()} · {user.email}</p>
+              <p className="text-xs text-slate-500">{user.role.toLowerCase()} - {user.email}</p>
             </div>
             <form action="/api/auth/logout" method="post">
               <button className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:border-brand-200 hover:text-brand-700">
