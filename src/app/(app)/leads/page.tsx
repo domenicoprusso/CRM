@@ -4,7 +4,17 @@ import { createLead } from "./actions";
 import { Badge, ButtonLink, Card, EmptyState, Notice, PageHeader, SubmitButton } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { buildLeadWhere, parseLeadFilters, readParam, type SearchParamsInput } from "@/lib/crm-filters";
+import { getTagSuggestions, getProjectSuggestions, getTeamUsers, projectLabel } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
+
+const LEAD_STATUS_LABELS: Record<string, string> = {
+  NEW: "Nuovo",
+  CONTACTED: "Contattato",
+  QUALIFIED: "Qualificato",
+  NURTURING: "In coltivazione",
+  CONVERTED: "Convertito",
+  LOST: "Perso",
+};
 
 function listNotice(params: SearchParamsInput) {
   if (readParam(params, "deleted") === "1") return { tone: "success" as const, message: "Lead eliminato." };
@@ -19,10 +29,13 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const params = await searchParams;
   const filters = parseLeadFilters(params);
   const notice = listNotice(params);
-  const [leads, companies, contacts] = await Promise.all([
+  const [leads, companies, contacts, teamUsers, tagSuggestions, projectSuggestions] = await Promise.all([
     prisma.lead.findMany({ where: buildLeadWhere(params, user), orderBy: { updatedAt: "desc" }, include: { company: true, contact: true, owner: true } }),
     prisma.company.findMany({ where: { tenantId: user.tenantId }, orderBy: { name: "asc" } }),
     prisma.contact.findMany({ where: { tenantId: user.tenantId }, orderBy: { lastName: "asc" } }),
+    getTeamUsers(prisma, user.tenantId),
+    getTagSuggestions(prisma, user.tenantId),
+    getProjectSuggestions(prisma, user.tenantId),
   ]);
 
   return (
@@ -37,9 +50,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
             <input name="source" placeholder="Fonte (LinkedIn, referral, evento...)" />
             <select name="status" defaultValue={LeadStatus.NEW}>
               {Object.values(LeadStatus).map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
+                <option key={status} value={status}>{LEAD_STATUS_LABELS[status] ?? status}</option>
               ))}
             </select>
             <div className="grid gap-3 md:grid-cols-2">
@@ -50,27 +61,26 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
             <select name="companyId" defaultValue="">
               <option value="">Nessuna azienda</option>
               {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                </option>
+                <option key={company.id} value={company.id}>{company.name}</option>
               ))}
             </select>
             <select name="contactId" defaultValue="">
               <option value="">Nessun contatto</option>
               {contacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>
-                  {contact.firstName} {contact.lastName}
-                </option>
+                <option key={contact.id} value={contact.id}>{contact.firstName} {contact.lastName}</option>
               ))}
             </select>
-            <input name="tags" placeholder="Tag separati da virgola" />
+            <input name="tags" placeholder="Tag separati da virgola" list="lead-tag-suggestions" />
+            <datalist id="lead-tag-suggestions">
+              {tagSuggestions.map((t) => <option key={t} value={t} />)}
+            </datalist>
             <textarea name="notes" placeholder="Note interne" rows={4} />
             <SubmitButton label="Crea lead" />
           </form>
         </Card>
         <div className="space-y-6">
           <Card>
-            <form className="grid gap-3 xl:grid-cols-[1fr_150px_180px_120px_150px_150px_150px_auto_auto] xl:items-end">
+            <form className="grid gap-3 xl:grid-cols-[1fr_150px_180px_120px_150px_150px_200px_auto_auto] xl:items-end">
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Cerca
                 <input name="q" defaultValue={filters.q ?? ""} placeholder="Titolo, fonte, azienda..." />
@@ -80,9 +90,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                 <select name="status" defaultValue={filters.status ?? ""}>
                   <option value="">Tutti</option>
                   {Object.values(LeadStatus).map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
+                    <option key={status} value={status}>{LEAD_STATUS_LABELS[status] ?? status}</option>
                   ))}
                 </select>
               </label>
@@ -91,9 +99,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                 <select name="companyId" defaultValue={filters.companyId ?? ""}>
                   <option value="">Tutte</option>
                   {companies.map((company) => (
-                    <option key={company.id} value={company.id}>
-                      {company.name}
-                    </option>
+                    <option key={company.id} value={company.id}>{company.name}</option>
                   ))}
                 </select>
               </label>
@@ -103,17 +109,26 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
               </label>
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Tag
-                <input name="tag" defaultValue={readParam(params, "tag") ?? ""} placeholder="Scuole" />
+                <input name="tag" defaultValue={readParam(params, "tag") ?? ""} placeholder="Scuole" list="lead-filter-tags" />
+                <datalist id="lead-filter-tags">
+                  {tagSuggestions.map((t) => <option key={t} value={t} />)}
+                </datalist>
               </label>
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Progetto
-                <input name="project" defaultValue={readParam(params, "project") ?? ""} placeholder="Scuole Roma" />
+                <input name="project" defaultValue={readParam(params, "project") ?? ""} placeholder="Scuole Roma" list="lead-filter-projects" />
+                <datalist id="lead-filter-projects">
+                  {projectSuggestions.map((p) => <option key={p.slug} value={p.label} />)}
+                </datalist>
               </label>
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Vista
+                Responsabile
                 <select name="owner" defaultValue={filters.owner ?? ""}>
                   <option value="">Tutti</option>
                   <option value="me">I miei record</option>
+                  {teamUsers.map((u) => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
                 </select>
               </label>
               <SubmitButton label="Filtra" />
@@ -138,26 +153,46 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                       <th className="px-6 py-3">Stato</th>
                       <th className="px-6 py-3">Score</th>
                       <th className="px-6 py-3">Valore</th>
+                      <th className="px-6 py-3">Tag</th>
+                      <th className="px-6 py-3">Progetto</th>
                       <th className="px-6 py-3">Owner</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {leads.map((lead) => (
-                      <tr key={lead.id} className="hover:bg-slate-50">
-                        <td className="px-6 py-4 font-semibold text-slate-950">
-                          <Link href={`/leads/${lead.id}`} className="text-brand-700 hover:text-brand-900">
-                            {lead.title}
-                          </Link>
-                          <p className="font-normal text-slate-500">{lead.company?.name ?? (lead.contact ? `${lead.contact.firstName} ${lead.contact.lastName}` : "N/D")}</p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <Badge>{lead.status}</Badge>
-                        </td>
-                        <td className="px-6 py-4">{lead.score}/100</td>
-                        <td className="px-6 py-4">{lead.estimatedValue ? `EUR ${lead.estimatedValue}` : "N/D"}</td>
-                        <td className="px-6 py-4">{lead.owner?.name ?? "N/D"}</td>
-                      </tr>
-                    ))}
+                    {leads.map((lead) => {
+                      const freeTags = lead.tags.filter((t) => !t.startsWith("project:")).slice(0, 2);
+                      const projectTags = lead.tags.filter((t) => t.startsWith("project:")).slice(0, 2);
+                      return (
+                        <tr key={lead.id} className="hover:bg-slate-50">
+                          <td className="px-6 py-4 font-semibold text-slate-950">
+                            <Link href={`/leads/${lead.id}`} className="text-brand-700 hover:text-brand-900">
+                              {lead.title}
+                            </Link>
+                            <p className="font-normal text-slate-500">{lead.company?.name ?? (lead.contact ? `${lead.contact.firstName} ${lead.contact.lastName}` : "N/D")}</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <Badge>{LEAD_STATUS_LABELS[lead.status] ?? lead.status}</Badge>
+                          </td>
+                          <td className="px-6 py-4">{lead.score}/100</td>
+                          <td className="px-6 py-4">{lead.estimatedValue ? `EUR ${lead.estimatedValue}` : "N/D"}</td>
+                          <td className="px-6 py-4">
+                            <div className="flex flex-wrap gap-1">
+                              {freeTags.length > 0
+                                ? freeTags.map((t) => <Badge key={t} tone="slate">{t}</Badge>)
+                                : <span className="text-slate-400">-</span>}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex flex-wrap gap-1">
+                              {projectTags.length > 0
+                                ? projectTags.map((t) => <Badge key={t} tone="brand">{projectLabel(t)}</Badge>)
+                                : <span className="text-slate-400">-</span>}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">{lead.owner?.name ?? "N/D"}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

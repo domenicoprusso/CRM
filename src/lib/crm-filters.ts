@@ -33,6 +33,7 @@ export function buildCompanyWhere(params: SearchParamsInput, user: CurrentUser):
   const where: Prisma.CompanyWhereInput = { tenantId: user.tenantId };
 
   if (filters.owner === "me") where.ownerId = user.id;
+  else if (filters.owner) where.ownerId = filters.owner;
   if (filters.industry) where.industry = contains(filters.industry);
   if (filters.country) where.country = contains(filters.country);
   if (filters.tag.length > 0) where.tags = tagContains(filters.tag);
@@ -71,6 +72,7 @@ export function buildContactWhere(params: SearchParamsInput, user: CurrentUser):
   const where: Prisma.ContactWhereInput = { tenantId: user.tenantId };
 
   if (filters.owner === "me") where.ownerId = user.id;
+  else if (filters.owner) where.ownerId = filters.owner;
   if (filters.lifecycle) where.lifecycle = filters.lifecycle;
   if (filters.companyId) where.companyId = filters.companyId;
   if (filters.tag.length > 0) where.tags = tagContains(filters.tag);
@@ -110,6 +112,7 @@ export function buildLeadWhere(params: SearchParamsInput, user: CurrentUser): Pr
   const where: Prisma.LeadWhereInput = { tenantId: user.tenantId };
 
   if (filters.owner === "me") where.ownerId = user.id;
+  else if (filters.owner) where.ownerId = filters.owner;
   if (filters.status) where.status = filters.status;
   if (filters.companyId) where.companyId = filters.companyId;
   if (filters.contactId) where.contactId = filters.contactId;

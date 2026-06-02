@@ -4,6 +4,7 @@ import { Badge, ButtonLink, Card, EmptyState, Notice, PageHeader, SubmitButton }
 import { requireUser } from "@/lib/auth";
 import { readParam, type SearchParamsInput } from "@/lib/crm-filters";
 import { buildOpportunityWhere, parseOpportunityFilters } from "@/lib/opportunity-filters";
+import { getTagSuggestions, getProjectSuggestions, getTeamUsers, projectLabel } from "@/lib/team";
 import { ensureDefaultPipelineStages } from "@/lib/pipeline";
 import { prisma } from "@/lib/prisma";
 
@@ -27,7 +28,7 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
   const filters = parseOpportunityFilters(params);
   const notice = listNotice(params);
   const stages = await ensureDefaultPipelineStages(user.tenantId);
-  const [opportunities, companies, contacts] = await Promise.all([
+  const [opportunities, companies, contacts, teamUsers, tagSuggestions, projectSuggestions] = await Promise.all([
     prisma.opportunity.findMany({
       where: buildOpportunityWhere(params, user),
       orderBy: { updatedAt: "desc" },
@@ -35,6 +36,9 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
     }),
     prisma.company.findMany({ where: { tenantId: user.tenantId }, orderBy: { name: "asc" } }),
     prisma.contact.findMany({ where: { tenantId: user.tenantId }, orderBy: { lastName: "asc" } }),
+    getTeamUsers(prisma, user.tenantId),
+    getTagSuggestions(prisma, user.tenantId),
+    getProjectSuggestions(prisma, user.tenantId),
   ]);
 
   return (
@@ -57,25 +61,19 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
             <input name="expectedCloseDate" type="date" />
             <select name="stageId" defaultValue={stages[0]?.id ?? ""}>
               {stages.map((stage) => (
-                <option key={stage.id} value={stage.id}>
-                  {stage.name}
-                </option>
+                <option key={stage.id} value={stage.id}>{stage.name}</option>
               ))}
             </select>
             <select name="companyId" defaultValue="">
               <option value="">Nessuna azienda</option>
               {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                </option>
+                <option key={company.id} value={company.id}>{company.name}</option>
               ))}
             </select>
             <select name="contactId" defaultValue="">
               <option value="">Nessun contatto</option>
               {contacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>
-                  {contact.firstName} {contact.lastName}
-                </option>
+                <option key={contact.id} value={contact.id}>{contact.firstName} {contact.lastName}</option>
               ))}
             </select>
             <textarea name="notes" placeholder="Note interne" rows={4} />
@@ -85,7 +83,7 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
 
         <div className="space-y-6">
           <Card>
-            <form className="grid gap-3 xl:grid-cols-[1fr_150px_170px_150px_150px_150px_auto_auto] xl:items-end">
+            <form className="grid gap-3 xl:grid-cols-[1fr_150px_170px_150px_150px_200px_auto_auto] xl:items-end">
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Cerca
                 <input name="q" defaultValue={filters.q ?? ""} placeholder="Titolo, azienda, contatto..." />
@@ -104,26 +102,33 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
                 <select name="stageId" defaultValue={filters.stageId ?? ""}>
                   <option value="">Tutti</option>
                   {stages.map((stage) => (
-                    <option key={stage.id} value={stage.id}>
-                      {stage.name}
-                    </option>
+                    <option key={stage.id} value={stage.id}>{stage.name}</option>
                   ))}
                 </select>
               </label>
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Vista
-                <select name="owner" defaultValue={filters.owner ?? ""}>
-                  <option value="">Tutti</option>
-                  <option value="me">I miei record</option>
-                </select>
-              </label>
-              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Tag
-                <input name="tag" defaultValue={readParam(params, "tag") ?? ""} placeholder="Scuole" />
+                <input name="tag" defaultValue={readParam(params, "tag") ?? ""} placeholder="Scuole" list="opp-filter-tags" />
+                <datalist id="opp-filter-tags">
+                  {tagSuggestions.map((t) => <option key={t} value={t} />)}
+                </datalist>
               </label>
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Progetto
-                <input name="project" defaultValue={readParam(params, "project") ?? ""} placeholder="Scuole Roma" />
+                <input name="project" defaultValue={readParam(params, "project") ?? ""} placeholder="Scuole Roma" list="opp-filter-projects" />
+                <datalist id="opp-filter-projects">
+                  {projectSuggestions.map((p) => <option key={p.slug} value={p.label} />)}
+                </datalist>
+              </label>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Responsabile
+                <select name="owner" defaultValue={filters.owner ?? ""}>
+                  <option value="">Tutti</option>
+                  <option value="me">I miei record</option>
+                  {teamUsers.map((u) => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
+                </select>
               </label>
               <SubmitButton label="Filtra" />
               <ButtonLink href="/opportunities">Reset</ButtonLink>
@@ -148,26 +153,39 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
                       <th className="px-6 py-3">Stage</th>
                       <th className="px-6 py-3">Valore</th>
                       <th className="px-6 py-3">Prob.</th>
+                      <th className="px-6 py-3">Progetto</th>
                       <th className="px-6 py-3">Owner</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {opportunities.map((opportunity) => (
-                      <tr key={opportunity.id} className="hover:bg-slate-50">
-                        <td className="px-6 py-4 font-semibold text-slate-950">
-                          <Link href={`/opportunities/${opportunity.id}`} className="text-brand-700 hover:text-brand-900">
-                            {opportunity.title}
-                          </Link>
-                          <p className="font-normal text-slate-500">{opportunity.company?.name ?? opportunity.contact?.lastName ?? "N/D"}</p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <Badge tone={stageTone(opportunity.stage)}>{opportunity.stage.name}</Badge>
-                        </td>
-                        <td className="px-6 py-4">EUR {opportunity.value.toString()}</td>
-                        <td className="px-6 py-4">{opportunity.probability}%</td>
-                        <td className="px-6 py-4">{opportunity.owner?.name ?? "N/D"}</td>
-                      </tr>
-                    ))}
+                    {opportunities.map((opportunity) => {
+                      const projectTags = (opportunity.company?.tags ?? [])
+                        .filter((t) => t.startsWith("project:"))
+                        .slice(0, 2);
+                      return (
+                        <tr key={opportunity.id} className="hover:bg-slate-50">
+                          <td className="px-6 py-4 font-semibold text-slate-950">
+                            <Link href={`/opportunities/${opportunity.id}`} className="text-brand-700 hover:text-brand-900">
+                              {opportunity.title}
+                            </Link>
+                            <p className="font-normal text-slate-500">{opportunity.company?.name ?? opportunity.contact?.lastName ?? "N/D"}</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <Badge tone={stageTone(opportunity.stage)}>{opportunity.stage.name}</Badge>
+                          </td>
+                          <td className="px-6 py-4">EUR {opportunity.value.toString()}</td>
+                          <td className="px-6 py-4">{opportunity.probability}%</td>
+                          <td className="px-6 py-4">
+                            <div className="flex flex-wrap gap-1">
+                              {projectTags.length > 0
+                                ? projectTags.map((t) => <Badge key={t} tone="brand">{projectLabel(t)}</Badge>)
+                                : <span className="text-slate-400">-</span>}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">{opportunity.owner?.name ?? "N/D"}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

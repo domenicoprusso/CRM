@@ -149,3 +149,19 @@ export const registerSchema = z.object({
   email: z.string().trim().email().transform((email) => email.toLowerCase()),
   password: z.string().min(8).max(128),
 });
+
+export const createUserSchema = z.object({
+  name: z.string().trim().min(2, "Il nome e obbligatorio").max(80),
+  email: z.string().trim().email("Email non valida").transform((email) => email.toLowerCase()),
+  role: z.enum(["ADMIN", "MANAGER", "SALES", "SUPPORT", "VIEWER"]),
+});
+
+export const updateUserRoleSchema = z.object({
+  userId: z.string().min(1),
+  role: z.enum(["ADMIN", "MANAGER", "SALES", "SUPPORT", "VIEWER"]),
+});
+
+export const toggleUserActiveSchema = z.object({
+  userId: z.string().min(1),
+  isActive: z.preprocess((v) => v === "true" || v === true, z.boolean()),
+});

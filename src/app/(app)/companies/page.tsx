@@ -3,6 +3,7 @@ import { createCompany } from "./actions";
 import { Badge, ButtonLink, Card, EmptyState, Notice, PageHeader, SubmitButton } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { buildCompanyWhere, parseCompanyFilters, readParam, type SearchParamsInput } from "@/lib/crm-filters";
+import { getTagSuggestions, getProjectSuggestions, getTeamUsers, projectLabel } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
 
 function listNotice(params: SearchParamsInput) {
@@ -16,11 +17,16 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
   const params = await searchParams;
   const filters = parseCompanyFilters(params);
   const notice = listNotice(params);
-  const companies = await prisma.company.findMany({
-    where: buildCompanyWhere(params, user),
-    orderBy: { updatedAt: "desc" },
-    include: { owner: true, _count: { select: { contacts: true, leads: true } } },
-  });
+  const [companies, teamUsers, tagSuggestions, projectSuggestions] = await Promise.all([
+    prisma.company.findMany({
+      where: buildCompanyWhere(params, user),
+      orderBy: { updatedAt: "desc" },
+      include: { owner: true, _count: { select: { contacts: true, leads: true } } },
+    }),
+    getTeamUsers(prisma, user.tenantId),
+    getTagSuggestions(prisma, user.tenantId),
+    getProjectSuggestions(prisma, user.tenantId),
+  ]);
 
   return (
     <>
@@ -39,14 +45,17 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
               <input name="city" placeholder="Citta" />
               <input name="country" placeholder="Paese" />
             </div>
-            <input name="tags" placeholder="Tag separati da virgola" />
+            <input name="tags" placeholder="Tag separati da virgola" list="tag-suggestions" />
+            <datalist id="tag-suggestions">
+              {tagSuggestions.map((t) => <option key={t} value={t} />)}
+            </datalist>
             <textarea name="notes" placeholder="Note interne" rows={4} />
             <SubmitButton label="Crea azienda" />
           </form>
         </Card>
         <div className="space-y-6">
           <Card>
-            <form className="grid gap-3 lg:grid-cols-[1fr_160px_160px_160px_160px_150px_auto_auto] lg:items-end">
+            <form className="grid gap-3 lg:grid-cols-[1fr_160px_160px_160px_160px_200px_auto_auto] lg:items-end">
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Cerca
                 <input name="q" defaultValue={filters.q ?? ""} placeholder="Nome, email, citta..." />
@@ -61,17 +70,26 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
               </label>
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Tag
-                <input name="tag" defaultValue={readParam(params, "tag") ?? ""} placeholder="Scuole" />
+                <input name="tag" defaultValue={readParam(params, "tag") ?? ""} placeholder="Scuole" list="filter-tags" />
+                <datalist id="filter-tags">
+                  {tagSuggestions.map((t) => <option key={t} value={t} />)}
+                </datalist>
               </label>
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Progetto
-                <input name="project" defaultValue={readParam(params, "project") ?? ""} placeholder="Scuole Roma" />
+                <input name="project" defaultValue={readParam(params, "project") ?? ""} placeholder="Scuole Roma" list="filter-projects" />
+                <datalist id="filter-projects">
+                  {projectSuggestions.map((p) => <option key={p.slug} value={p.label} />)}
+                </datalist>
               </label>
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Vista
+                Responsabile
                 <select name="owner" defaultValue={filters.owner ?? ""}>
                   <option value="">Tutti</option>
                   <option value="me">I miei record</option>
+                  {teamUsers.map((u) => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
                 </select>
               </label>
               <SubmitButton label="Filtra" />
@@ -94,26 +112,46 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
                     <tr>
                       <th className="px-6 py-3">Azienda</th>
                       <th className="px-6 py-3">Settore</th>
+                      <th className="px-6 py-3">Tag</th>
+                      <th className="px-6 py-3">Progetto</th>
                       <th className="px-6 py-3">Contatti</th>
                       <th className="px-6 py-3">Lead</th>
                       <th className="px-6 py-3">Owner</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {companies.map((company) => (
-                      <tr key={company.id} className="hover:bg-slate-50">
-                        <td className="px-6 py-4 font-semibold text-slate-950">
-                          <Link href={`/companies/${company.id}`} className="text-brand-700 hover:text-brand-900">
-                            {company.name}
-                          </Link>
-                          <p className="font-normal text-slate-500">{company.email ?? company.phone ?? "N/D"}</p>
-                        </td>
-                        <td className="px-6 py-4">{company.industry ?? "N/D"}</td>
-                        <td className="px-6 py-4">{company._count.contacts}</td>
-                        <td className="px-6 py-4">{company._count.leads}</td>
-                        <td className="px-6 py-4">{company.owner?.name ?? "N/D"}</td>
-                      </tr>
-                    ))}
+                    {companies.map((company) => {
+                      const freeTags = company.tags.filter((t) => !t.startsWith("project:")).slice(0, 3);
+                      const projectTags = company.tags.filter((t) => t.startsWith("project:")).slice(0, 2);
+                      return (
+                        <tr key={company.id} className="hover:bg-slate-50">
+                          <td className="px-6 py-4 font-semibold text-slate-950">
+                            <Link href={`/companies/${company.id}`} className="text-brand-700 hover:text-brand-900">
+                              {company.name}
+                            </Link>
+                            <p className="font-normal text-slate-500">{company.email ?? company.phone ?? "N/D"}</p>
+                          </td>
+                          <td className="px-6 py-4">{company.industry ?? "N/D"}</td>
+                          <td className="px-6 py-4">
+                            <div className="flex flex-wrap gap-1">
+                              {freeTags.length > 0
+                                ? freeTags.map((t) => <Badge key={t} tone="slate">{t}</Badge>)
+                                : <span className="text-slate-400">-</span>}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex flex-wrap gap-1">
+                              {projectTags.length > 0
+                                ? projectTags.map((t) => <Badge key={t} tone="brand">{projectLabel(t)}</Badge>)
+                                : <span className="text-slate-400">-</span>}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">{company._count.contacts}</td>
+                          <td className="px-6 py-4">{company._count.leads}</td>
+                          <td className="px-6 py-4">{company.owner?.name ?? "N/D"}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

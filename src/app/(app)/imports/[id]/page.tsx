@@ -52,14 +52,14 @@ export default async function ImportDetailPage({ params }: { params: Promise<{ i
         action={<ButtonLink href="/imports">Torna agli import</ButtonLink>}
       />
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <ImportStatCard label="Righe totali" value={stats?.total ?? 0} />
         <ImportStatCard label="Valide" value={stats?.valid ?? 0} />
         <ImportStatCard label="Duplicate" value={stats?.duplicate ?? 0} />
         <ImportStatCard label="Errate" value={stats?.invalid ?? 0} />
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_0.8fr]">
+      <div className="mt-6 grid gap-6 xl:grid-cols-2">
         <Card>
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -110,7 +110,7 @@ export default async function ImportDetailPage({ params }: { params: Promise<{ i
         </Card>
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_0.9fr]">
+      <div className="mt-6 grid gap-6 xl:grid-cols-2">
         <Card>
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -129,7 +129,7 @@ export default async function ImportDetailPage({ params }: { params: Promise<{ i
             <EmptyState message="Il report finale apparira dopo l&apos;esecuzione dell&apos;import." />
           ) : executionStats ? (
             <div className="mt-4 space-y-4 text-sm text-slate-600">
-              <div className="grid gap-4 md:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 <ImportStatCard label="Importate" value={executionStats.created} />
                 <ImportStatCard label="Saltate" value={executionStats.skipped} />
                 <ImportStatCard label="Duplicate esistenti" value={executionStats.duplicateExisting} />

@@ -29,6 +29,7 @@ export function buildOpportunityWhere(params: SearchParamsInput, user: CurrentUs
   const where: Prisma.OpportunityWhereInput = { tenantId: user.tenantId };
 
   if (filters.owner === "me") where.ownerId = user.id;
+  else if (filters.owner) where.ownerId = filters.owner;
   if (filters.stageId) where.stageId = filters.stageId;
   if (filters.companyId) where.companyId = filters.companyId;
   if (filters.contactId) where.contactId = filters.contactId;

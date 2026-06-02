@@ -24,7 +24,7 @@ export function parseTaskFilters(params: SearchParamsInput) {
 
   return {
     q: readParam(params, "q"),
-    owner: owner === "me" || owner === "all" ? owner : undefined,
+    owner: owner ?? undefined,
     status: status && Object.values(TaskStatus).includes(status as TaskStatus) ? (status as TaskStatus) : undefined,
     priority: priority && Object.values(TaskPriority).includes(priority as TaskPriority) ? (priority as TaskPriority) : undefined,
     due: due === "today" || due === "overdue" || due === "upcoming" ? due : undefined,
@@ -38,6 +38,7 @@ export function buildTaskWhere(params: SearchParamsInput, user: CurrentUser, now
   const where: Prisma.TaskWhereInput = { tenantId: user.tenantId };
 
   if (filters.owner === "me") where.ownerId = user.id;
+  else if (filters.owner && filters.owner !== "all") where.ownerId = filters.owner;
   if (filters.status) where.status = filters.status;
   if (filters.priority) where.priority = filters.priority;
   if (filters.tag.length > 0 || filters.project.length > 0) {

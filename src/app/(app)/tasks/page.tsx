@@ -161,10 +161,13 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
                 </select>
               </label>
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Vista
+                Responsabile
                 <select name="owner" defaultValue={filters.owner ?? ""}>
                   <option value="">Tutti</option>
                   <option value="me">Le mie attivita</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
                 </select>
               </label>
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">

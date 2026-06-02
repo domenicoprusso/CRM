@@ -2,21 +2,22 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BadgeDollarSign, BarChart3, Building2, KanbanSquare, ListTodo, LogOut, Sun, Target, Upload, UsersRound } from "lucide-react";
+import { BadgeDollarSign, BarChart3, Building2, KanbanSquare, ListTodo, LogOut, Sun, Target, Upload, Users, UsersRound } from "lucide-react";
 import { clsx } from "clsx";
 import type { Role } from "@prisma/client";
 import { NotificationBell } from "@/components/notification-bell";
 
 const navigation = [
-  { href: "/dashboard", label: "My Day", icon: Sun },
-  { href: "/companies", label: "Aziende", icon: Building2 },
-  { href: "/contacts", label: "Contatti", icon: UsersRound },
-  { href: "/leads", label: "Lead", icon: Target },
-  { href: "/opportunities", label: "Opportunita", icon: BadgeDollarSign },
-  { href: "/pipeline", label: "Pipeline", icon: KanbanSquare },
-  { href: "/reports", label: "Report", icon: BarChart3 },
-  { href: "/imports", label: "Import", icon: Upload },
-  { href: "/tasks", label: "Attivita", icon: ListTodo },
+  { href: "/dashboard", label: "My Day", icon: Sun, roles: null },
+  { href: "/companies", label: "Aziende", icon: Building2, roles: null },
+  { href: "/contacts", label: "Contatti", icon: UsersRound, roles: null },
+  { href: "/leads", label: "Lead", icon: Target, roles: null },
+  { href: "/opportunities", label: "Opportunita", icon: BadgeDollarSign, roles: null },
+  { href: "/pipeline", label: "Pipeline", icon: KanbanSquare, roles: null },
+  { href: "/reports", label: "Report", icon: BarChart3, roles: null },
+  { href: "/imports", label: "Import", icon: Upload, roles: null },
+  { href: "/tasks", label: "Attivita", icon: ListTodo, roles: null },
+  { href: "/users", label: "Team", icon: Users, roles: ["ADMIN", "MANAGER"] as string[] },
 ];
 
 const pageTitles: Record<string, string> = {
@@ -52,7 +53,7 @@ export function AppShell({ children, user }: { children: React.ReactNode; user: 
           <p className="mt-3 text-sm text-slate-500">Workspace scalabile per vendite, supporto e customer success.</p>
         </div>
         <nav className="space-y-1">
-          {navigation.map((item) => {
+          {navigation.filter((item) => !item.roles || item.roles.includes(user.role)).map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
             return (
               <Link
