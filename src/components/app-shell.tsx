@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { BadgeDollarSign, BarChart3, Building2, KanbanSquare, LayoutDashboard, ListTodo, LogOut, Target, Upload, UsersRound } from "lucide-react";
+import { BadgeDollarSign, BarChart3, Building2, KanbanSquare, ListTodo, LogOut, Sun, Target, Upload, UsersRound } from "lucide-react";
 import type { Role } from "@prisma/client";
 import { NotificationBell } from "@/components/notification-bell";
 
 const navigation = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard", label: "My Day", icon: Sun },
   { href: "/companies", label: "Aziende", icon: Building2 },
   { href: "/contacts", label: "Contatti", icon: UsersRound },
   { href: "/leads", label: "Lead", icon: Target },

@@ -1,165 +1,325 @@
-import { ButtonLink, Card, EmptyState, PageHeader, StatCard } from "@/components/ui";
-import { NotificationPanel } from "@/components/notification-panel";
-import { ReportSection, ReportTable } from "@/components/reporting";
+﻿import Link from "next/link";
+import { AlertCircle, Clock, Bell, TrendingUp, Sparkles } from "lucide-react";
+import { Badge, ButtonLink, Card, EmptyState, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { can } from "@/lib/permissions";
-import { buildNotificationStorageKey } from "@/lib/notification-state";
-import { getReportSnapshot, parseReportFilters, formatPercentage, reportPeriodLabel } from "@/lib/reports";
-import { getNotificationSnapshot } from "@/lib/notifications";
+import { getMyDaySnapshot, MY_DAY_LIMIT } from "@/lib/my-day";
 import { prisma } from "@/lib/prisma";
-
-function money(value: number) {
-  return new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(value);
+const dayFormatter = new Intl.DateTimeFormat("it-IT", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
+const dateTimeFormatter = new Intl.DateTimeFormat("it-IT", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+function formatDate(date: Date | null | undefined) {
+  return date ? dayFormatter.format(date) : null;
 }
-
+function formatDateTime(date: Date | null | undefined) {
+  return date ? dateTimeFormatter.format(date) : null;
+}
+function priorityTone(priority: string): "red" | "amber" | "slate" {
+  if (priority === "URGENT" || priority === "HIGH") return "red";
+  if (priority === "MEDIUM") return "amber";
+  return "slate";
+}
+function priorityLabel(priority: string) {
+  const labels: Record<string, string> = {
+    URGENT: "Urgente",
+    HIGH: "Alta",
+    MEDIUM: "Media",
+    LOW: "Bassa",
+  };
+  return labels[priority] ?? priority;
+}
+function taskContextLabel(task: {
+  company: { name: string } | null;
+  contact: { firstName: string; lastName: string } | null;
+  lead: { title: string } | null;
+  opportunity: { title: string } | null;
+}) {
+  return (
+    task.company?.name ??
+    (task.contact ? `${task.contact.firstName} ${task.contact.lastName}` : null) ??
+    task.lead?.title ??
+    task.opportunity?.title ??
+    null
+  );
+}
+type MyDayTaskItem = {
+  id: string;
+  title: string;
+  priority: string;
+  dueAt: Date | null;
+  reminderAt: Date | null;
+  company: { id: string; name: string } | null;
+  contact: { id: string; firstName: string; lastName: string } | null;
+  lead: { id: string; title: string } | null;
+  opportunity: { id: string; title: string } | null;
+};
+function TaskRow({ task, dateLabel }: { task: MyDayTaskItem; dateLabel: string | null }) {
+  const context = taskContextLabel(task);
+  return (
+    <div className="flex items-start justify-between gap-4 rounded-2xl border border-slate-100 bg-white p-4">
+      <div className="min-w-0 flex-1">
+        <Link href={`/tasks/${task.id}`} className="font-semibold text-brand-700 hover:text-brand-900 hover:underline">
+          {task.title}
+        </Link>
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+          {dateLabel && <span>{dateLabel}</span>}
+          {context && <span className="text-slate-400">Â·</span>}
+          {context && <span>{context}</span>}
+        </div>
+      </div>
+      <Badge tone={priorityTone(task.priority)}>{priorityLabel(task.priority)}</Badge>
+    </div>
+  );
+}
+function SectionHeader({
+  icon: Icon,
+  title,
+  total,
+  seeAllHref,
+  tone,
+}: {
+  icon: React.ElementType;
+  title: string;
+  total: number;
+  seeAllHref: string;
+  tone: "red" | "amber" | "brand" | "slate";
+}) {
+  const tones = {
+    red: "text-red-600",
+    amber: "text-amber-600",
+    brand: "text-brand-600",
+    slate: "text-slate-600",
+  };
+  const badgeTone: "red" | "amber" | "brand" | "slate" = tone;
+  return (
+    <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2">
+        <Icon className={`h-5 w-5 ${tones[tone]}`} />
+        <h3 className="text-base font-semibold text-slate-950">{title}</h3>
+        {total > 0 && <Badge tone={badgeTone}>{total}</Badge>}
+      </div>
+      {total > MY_DAY_LIMIT && (
+        <Link href={seeAllHref} className="text-xs font-semibold text-brand-600 hover:text-brand-800 hover:underline">
+          Vedi tutti ({total})
+        </Link>
+      )}
+    </div>
+  );
+}
 export default async function DashboardPage() {
   const user = await requireUser("dashboard:read");
-  const [snapshot, notificationSnapshot] = await Promise.all([
-    getReportSnapshot(prisma, user.tenantId, parseReportFilters({})),
-    getNotificationSnapshot(prisma, user.tenantId),
-  ]);
-  const exportEnabled = can(user.role, "reports:export");
-
+  const snapshot = await getMyDaySnapshot(prisma, user.tenantId, user.id);
+  const totalAlerts =
+    snapshot.overdueTotal +
+    snapshot.dueTodayTotal +
+    snapshot.followupTodayTotal +
+    snapshot.opportunitiesWithoutNextActionTotal;
   return (
     <>
       <PageHeader
-        title="Dashboard"
-        description={`Sintesi manageriale del periodo ${reportPeriodLabel(snapshot.period)}.`}
-        action={<ButtonLink href="/reports" variant="primary">Apri report</ButtonLink>}
+        title="My Day"
+        description={`${snapshot.today} Â· Ciao ${user.name.split(" ")[0]}, ecco la tua giornata.`}
+        action={<ButtonLink href="/reports">Report manageriale</ButtonLink>}
       />
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Forecast totale" value={money(snapshot.summary.forecastTotal)} hint="Valore ponderato delle opportunita aperte" />
-        <StatCard label="Conversion rate" value={formatPercentage(snapshot.summary.conversionRate)} hint="Lead convertiti in opportunita" />
-        <StatCard label="Won rate" value={formatPercentage(snapshot.summary.wonRate)} hint="Opportunita vinte sul totale chiuso" />
-        <StatCard label="Lost rate" value={formatPercentage(snapshot.summary.lostRate)} hint="Opportunita perse sul totale chiuso" />
-      </div>
-
-      <div className="mt-6">
-        <NotificationPanel
-          snapshot={notificationSnapshot}
-          storageKey={buildNotificationStorageKey(user.tenantId, user.id)}
-          variant="widget"
+      {totalAlerts === 0 && snapshot.newLeadsTotal === 0 ? (
+        <Card className="mb-6">
+          <div className="flex items-center gap-3">
+            <Sparkles className="h-6 w-6 text-brand-600" />
+            <div>
+              <p className="font-semibold text-slate-950">Tutto in ordine!</p>
+              <p className="text-sm text-slate-500">Nessun task scaduto, nessun follow-up pendente, nessun lead da prendere in carico.</p>
+            </div>
+          </div>
+        </Card>
+      ) : null}
+      {/* Task scaduti */}
+      <Card className="mb-6">
+        <SectionHeader
+          icon={AlertCircle}
+          title="Task scaduti"
+          total={snapshot.overdueTotal}
+          seeAllHref="/tasks?due=overdue&owner=me"
+          tone="red"
         />
-      </div>
-
-      <div className="mt-6 grid gap-6 xl:grid-cols-2">
-        <ReportSection title="Pipeline per stage" description="Valore e conto delle opportunita aperte per stage.">
-          <ReportTable headers={["Stage", "Count", "Valore", "Forecast"]}>
-            {snapshot.pipelineRows.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="px-4 py-6">
-                  <EmptyState message="Nessuna opportunita aperta nel periodo corrente." />
-                </td>
-              </tr>
-            ) : (
-              snapshot.pipelineRows.map((row) => (
-                <tr key={row.id}>
-                  <td className="px-4 py-4 font-semibold text-slate-950">{row.name}</td>
-                  <td className="px-4 py-4">{row.count}</td>
-                  <td className="px-4 py-4">{money(row.value)}</td>
-                  <td className="px-4 py-4">{money(row.weightedValue)}</td>
-                </tr>
-              ))
-            )}
-          </ReportTable>
-        </ReportSection>
-
-        <ReportSection title="Forecast per commerciale" description="Forecast totale e ponderato per owner.">
-          <ReportTable headers={["Commerciale", "Opp.", "Valore", "Forecast"]}>
-            {snapshot.forecastRows.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="px-4 py-6">
-                  <EmptyState message="Nessuna opportunita aperta da aggregare." />
-                </td>
-              </tr>
-            ) : (
-              snapshot.forecastRows.map((row) => (
-                <tr key={row.ownerId ?? "unassigned"}>
-                  <td className="px-4 py-4 font-semibold text-slate-950">{row.ownerName}</td>
-                  <td className="px-4 py-4">{row.count}</td>
-                  <td className="px-4 py-4">{money(row.value)}</td>
-                  <td className="px-4 py-4">{money(row.weightedValue)}</td>
-                </tr>
-              ))
-            )}
-          </ReportTable>
-        </ReportSection>
-      </div>
-
-      <div className="mt-6 grid gap-6 xl:grid-cols-2">
-        <ReportSection title="Attivita per commerciale" description="Attivita registrate nel periodo corrente.">
-          <ReportTable headers={["Commerciale", "Attivita"]}>
-            {snapshot.activityRows.length === 0 ? (
-              <tr>
-                <td colSpan={2} className="px-4 py-6">
-                  <EmptyState message="Nessuna attivita nel periodo corrente." />
-                </td>
-              </tr>
-            ) : (
-              snapshot.activityRows.map((row) => (
-                <tr key={row.ownerId ?? "unassigned"}>
-                  <td className="px-4 py-4 font-semibold text-slate-950">{row.ownerName}</td>
-                  <td className="px-4 py-4">{row.count}</td>
-                </tr>
-              ))
-            )}
-          </ReportTable>
-        </ReportSection>
-
-        <ReportSection title="Task scaduti per owner" description="Task aperti con scadenza superata.">
-          <ReportTable headers={["Commerciale", "Task"]}>
-            {snapshot.overdueTaskRows.length === 0 ? (
-              <tr>
-                <td colSpan={2} className="px-4 py-6">
-                  <EmptyState message="Nessun task scaduto." />
-                </td>
-              </tr>
-            ) : (
-              snapshot.overdueTaskRows.map((row) => (
-                <tr key={row.ownerId ?? "unassigned"}>
-                  <td className="px-4 py-4 font-semibold text-slate-950">{row.ownerName}</td>
-                  <td className="px-4 py-4">{row.count}</td>
-                </tr>
-              ))
-            )}
-          </ReportTable>
-        </ReportSection>
-      </div>
-
-      <div className="mt-6 grid gap-6 xl:grid-cols-2">
-        <ReportSection title="Opportunita senza next action" description="Opportunita aperte senza alcun task aperto associato.">
+        {snapshot.overdueTasks.length === 0 ? (
+          <EmptyState message="Nessun task scaduto. Ottimo lavoro!" />
+        ) : (
+          <div className="space-y-3">
+            {snapshot.overdueTasks.map((task) => (
+              <TaskRow
+                key={task.id}
+                task={task}
+                dateLabel={task.dueAt ? `Scaduto il ${formatDate(task.dueAt)}` : null}
+              />
+            ))}
+          </div>
+        )}
+      </Card>
+      {/* Task in scadenza oggi */}
+      <Card className="mb-6">
+        <SectionHeader
+          icon={Clock}
+          title="Task in scadenza oggi"
+          total={snapshot.dueTodayTotal}
+          seeAllHref="/tasks?due=today&owner=me"
+          tone="amber"
+        />
+        {snapshot.dueTodayTasks.length === 0 ? (
+          <EmptyState message="Nessun task in scadenza oggi." />
+        ) : (
+          <div className="space-y-3">
+            {snapshot.dueTodayTasks.map((task) => (
+              <TaskRow
+                key={task.id}
+                task={task}
+                dateLabel={task.dueAt ? `Scadenza ${formatDate(task.dueAt)}` : null}
+              />
+            ))}
+          </div>
+        )}
+      </Card>
+      {/* Follow-up di oggi */}
+      <Card className="mb-6">
+        <SectionHeader
+          icon={Bell}
+          title="Follow-up di oggi"
+          total={snapshot.followupTodayTotal}
+          seeAllHref="/tasks?owner=me"
+          tone="brand"
+        />
+        {snapshot.followupTodayTasks.length === 0 ? (
+          <EmptyState message="Nessun follow-up programmato per oggi." />
+        ) : (
+          <div className="space-y-3">
+            {snapshot.followupTodayTasks.map((task) => (
+              <TaskRow
+                key={task.id}
+                task={task}
+                dateLabel={task.reminderAt ? `Promemoria ${formatDateTime(task.reminderAt)}` : null}
+              />
+            ))}
+          </div>
+        )}
+      </Card>
+      <div className="grid gap-6 xl:grid-cols-2">
+        {/* OpportunitÃ  senza next action */}
+        <Card>
+          <SectionHeader
+            icon={TrendingUp}
+            title="OpportunitÃ  senza next action"
+            total={snapshot.opportunitiesWithoutNextActionTotal}
+            seeAllHref="/opportunities?owner=me"
+            tone="slate"
+          />
           {snapshot.opportunitiesWithoutNextAction.length === 0 ? (
-            <EmptyState message="Nessuna opportunita scoperta." />
+            <EmptyState message="Tutte le tue opportunitÃ  hanno almeno un task aperto." />
           ) : (
             <div className="space-y-3">
-              {snapshot.opportunitiesWithoutNextAction.map((opportunity) => (
-                <div key={opportunity.id} className="rounded-2xl border border-slate-100 p-4">
-                  <p className="font-semibold text-slate-950">{opportunity.title}</p>
-                  <p className="text-sm text-slate-500">{opportunity.company?.name ?? "N/D"} - {opportunity.owner?.name ?? "N/D"} - {opportunity.stage.name}</p>
-                </div>
-              ))}
+              {snapshot.opportunitiesWithoutNextAction.map((opp) => {
+                const closeDate = formatDate(opp.expectedCloseDate);
+                return (
+                  <div key={opp.id} className="rounded-2xl border border-slate-100 bg-white p-4">
+                    <Link
+                      href={`/opportunities/${opp.id}`}
+                      className="font-semibold text-brand-700 hover:text-brand-900 hover:underline"
+                    >
+                      {opp.title}
+                    </Link>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                      <Badge tone="slate">{opp.stage.name}</Badge>
+                      {opp.company && (
+                        <>
+                          <span className="text-slate-400">Â·</span>
+                          <Link href={`/companies/${opp.company.id}`} className="hover:text-brand-700">
+                            {opp.company.name}
+                          </Link>
+                        </>
+                      )}
+                      {closeDate && (
+                        <>
+                          <span className="text-slate-400">Â·</span>
+                          <span>Chiusura {closeDate}</span>
+                        </>
+                      )}
+                    </div>
+                    <div className="mt-2 flex items-center gap-3 text-xs text-slate-500">
+                      <span>
+                        Valore{" "}
+                        <span className="font-semibold text-slate-700">
+                          {new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(
+                            Number(opp.value),
+                          )}
+                        </span>
+                      </span>
+                      <span className="text-slate-400">Â·</span>
+                      <span>{opp.probability}% prob.</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
-        </ReportSection>
-
+        </Card>
+        {/* Lead NEW assegnati a me */}
         <Card>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-950">Accesso rapido</h3>
-              <p className="text-sm text-slate-500">Vai ai report completi o esporta lo snapshot corrente.</p>
+          <SectionHeader
+            icon={Sparkles}
+            title="Lead nuovi da prendere in carico"
+            total={snapshot.newLeadsTotal}
+            seeAllHref="/leads?status=NEW&owner=me"
+            tone="slate"
+          />
+          {snapshot.newLeads.length === 0 ? (
+            <EmptyState message="Nessun lead nuovo assegnato a te." />
+          ) : (
+            <div className="space-y-3">
+              {snapshot.newLeads.map((lead) => {
+                const context =
+                  lead.company?.name ??
+                  (lead.contact ? `${lead.contact.firstName} ${lead.contact.lastName}` : null);
+                return (
+                  <div key={lead.id} className="rounded-2xl border border-slate-100 bg-white p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <Link
+                        href={`/leads/${lead.id}`}
+                        className="font-semibold text-brand-700 hover:text-brand-900 hover:underline"
+                      >
+                        {lead.title}
+                      </Link>
+                      <Badge tone="slate">Score {lead.score}</Badge>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                      {context && <span>{context}</span>}
+                      {lead.source && (
+                        <>
+                          {context && <span className="text-slate-400">Â·</span>}
+                          <span>{lead.source}</span>
+                        </>
+                      )}
+                      {lead.estimatedValue && (
+                        <>
+                          <span className="text-slate-400">Â·</span>
+                          <span>
+                            {new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(
+                              Number(lead.estimatedValue),
+                            )}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <ButtonLink href="/reports" variant="primary">
-              Report completi
-            </ButtonLink>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-3">
-            {exportEnabled ? (
-              <ButtonLink href="/api/reports/export?entity=summary" variant="primary">
-                Export summary
-              </ButtonLink>
-            ) : null}
-          </div>
+          )}
         </Card>
       </div>
     </>
