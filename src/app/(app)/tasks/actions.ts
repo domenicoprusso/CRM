@@ -95,7 +95,12 @@ export async function createTask(formData: FormData) {
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "CREATE", entityType: "Task", entityId: task.id, after: task });
   revalidatePath("/tasks");
   revalidatePath("/dashboard");
-  redirect(`/tasks/${task.id}?created=1`);
+  if (task.companyId) revalidatePath(`/companies/${task.companyId}`);
+  if (task.contactId) revalidatePath(`/contacts/${task.contactId}`);
+  if (task.leadId) revalidatePath(`/leads/${task.leadId}`);
+  if (task.opportunityId) revalidatePath(`/opportunities/${task.opportunityId}`);
+  const redirectTo = formData.get("redirectTo");
+  redirect(typeof redirectTo === "string" && redirectTo.startsWith("/") ? redirectTo : `/tasks/${task.id}?created=1`);
 }
 
 export async function updateTask(formData: FormData) {

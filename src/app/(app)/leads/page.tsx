@@ -2,10 +2,14 @@ import { LeadStatus } from "@prisma/client";
 import Link from "next/link";
 import { createLead } from "./actions";
 import { Badge, ButtonLink, Card, EmptyState, Notice, PageHeader, SubmitButton } from "@/components/ui";
+import { PaginationControls, PageSizeSelector, ResultsCount } from "@/components/pagination";
 import { requireUser } from "@/lib/auth";
 import { buildLeadWhere, parseLeadFilters, readParam, type SearchParamsInput } from "@/lib/crm-filters";
+import { parsePaginationParams, buildSkipTake, buildPaginationMeta, parseSort } from "@/lib/pagination";
 import { getTagSuggestions, getProjectSuggestions, getTeamUsers, projectLabel } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
+
+const LEAD_SORT_FIELDS = ["updatedAt", "title", "createdAt", "score"] as const;
 
 const LEAD_STATUS_LABELS: Record<string, string> = {
   NEW: "Nuovo",
@@ -29,14 +33,21 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const params = await searchParams;
   const filters = parseLeadFilters(params);
   const notice = listNotice(params);
-  const [leads, companies, contacts, teamUsers, tagSuggestions, projectSuggestions] = await Promise.all([
-    prisma.lead.findMany({ where: buildLeadWhere(params, user), orderBy: { updatedAt: "desc" }, include: { company: true, contact: true, owner: true } }),
+  const { page, pageSize } = parsePaginationParams(params);
+  const { field: sortField, dir: sortDir } = parseSort(params, LEAD_SORT_FIELDS, "updatedAt", "desc");
+  const { skip, take } = buildSkipTake(page, pageSize);
+  const where = buildLeadWhere(params, user);
+
+  const [leads, total, companies, contacts, teamUsers, tagSuggestions, projectSuggestions] = await Promise.all([
+    prisma.lead.findMany({ where, orderBy: { [sortField]: sortDir }, skip, take, include: { company: true, contact: true, owner: true } }),
+    prisma.lead.count({ where }),
     prisma.company.findMany({ where: { tenantId: user.tenantId }, orderBy: { name: "asc" } }),
     prisma.contact.findMany({ where: { tenantId: user.tenantId }, orderBy: { lastName: "asc" } }),
     getTeamUsers(prisma, user.tenantId),
     getTagSuggestions(prisma, user.tenantId),
     getProjectSuggestions(prisma, user.tenantId),
   ]);
+  const meta = buildPaginationMeta(total, page, pageSize);
 
   return (
     <>
@@ -118,7 +129,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                 Progetto
                 <input name="project" defaultValue={readParam(params, "project") ?? ""} placeholder="Scuole Roma" list="lead-filter-projects" />
                 <datalist id="lead-filter-projects">
-                  {projectSuggestions.map((p) => <option key={p.slug} value={p.label} />)}
+                  {projectSuggestions.map((p) => <option key={p.slug} value={p.slug} />)}
                 </datalist>
               </label>
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -138,7 +149,10 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           <Card className="overflow-hidden p-0">
             <div className="flex items-center justify-between border-b border-slate-100 p-6">
               <h3 className="text-lg font-semibold">Lead pipeline iniziale</h3>
-              <Badge tone="slate">{leads.length} risultati</Badge>
+              <div className="flex items-center gap-3">
+                <ResultsCount meta={meta} />
+                <PageSizeSelector meta={meta} params={params} />
+              </div>
             </div>
             {leads.length === 0 ? (
               <div className="p-6">
@@ -195,6 +209,12 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                     })}
                   </tbody>
                 </table>
+              </div>
+            )}
+            {meta.totalPages > 1 && (
+              <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
+                <ResultsCount meta={meta} />
+                <PaginationControls meta={meta} params={params} />
               </div>
             )}
           </Card>

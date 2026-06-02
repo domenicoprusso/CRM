@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { createCompany } from "./actions";
 import { Badge, ButtonLink, Card, EmptyState, Notice, PageHeader, SubmitButton } from "@/components/ui";
+import { PaginationControls, PageSizeSelector, ResultsCount } from "@/components/pagination";
 import { requireUser } from "@/lib/auth";
 import { buildCompanyWhere, parseCompanyFilters, readParam, type SearchParamsInput } from "@/lib/crm-filters";
+import { parsePaginationParams, buildSkipTake, buildPaginationMeta, parseSort } from "@/lib/pagination";
 import { getTagSuggestions, getProjectSuggestions, getTeamUsers, projectLabel } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
+
+const COMPANY_SORT_FIELDS = ["updatedAt", "name", "createdAt"] as const;
 
 function listNotice(params: SearchParamsInput) {
   if (readParam(params, "deleted") === "1") return { tone: "success" as const, message: "Azienda eliminata." };
@@ -17,16 +21,26 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
   const params = await searchParams;
   const filters = parseCompanyFilters(params);
   const notice = listNotice(params);
-  const [companies, teamUsers, tagSuggestions, projectSuggestions] = await Promise.all([
+  const { page, pageSize } = parsePaginationParams(params);
+  const { field: sortField, dir: sortDir } = parseSort(params, COMPANY_SORT_FIELDS, "updatedAt", "desc");
+  const { skip, take } = buildSkipTake(page, pageSize);
+  const where = buildCompanyWhere(params, user);
+
+  const [companies, total, teamUsers, tagSuggestions, projectSuggestions] = await Promise.all([
     prisma.company.findMany({
-      where: buildCompanyWhere(params, user),
-      orderBy: { updatedAt: "desc" },
+      where,
+      orderBy: { [sortField]: sortDir },
+      skip,
+      take,
       include: { owner: true, _count: { select: { contacts: true, leads: true } } },
     }),
+    prisma.company.count({ where }),
     getTeamUsers(prisma, user.tenantId),
     getTagSuggestions(prisma, user.tenantId),
     getProjectSuggestions(prisma, user.tenantId),
   ]);
+
+  const meta = buildPaginationMeta(total, page, pageSize);
 
   return (
     <>
@@ -90,7 +104,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
                 Progetto
                 <input name="project" defaultValue={readParam(params, "project") ?? ""} placeholder="Scuole Roma" list="filter-projects" />
                 <datalist id="filter-projects">
-                  {projectSuggestions.map((p) => <option key={p.slug} value={p.label} />)}
+                  {projectSuggestions.map((p) => <option key={p.slug} value={p.slug} />)}
                 </datalist>
               </label>
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -108,9 +122,12 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
             </form>
           </Card>
           <Card className="overflow-hidden p-0">
-            <div className="flex items-center justify-between border-b border-slate-100 p-6">
+            <div className="flex items-center justify-between gap-4 border-b border-slate-100 px-6 py-4">
               <h3 className="text-lg font-semibold">Account registrati</h3>
-              <Badge tone="slate">{companies.length} risultati</Badge>
+              <div className="flex items-center gap-4">
+                <ResultsCount meta={meta} />
+                <PageSizeSelector meta={meta} params={params} />
+              </div>
             </div>
             {companies.length === 0 ? (
               <div className="p-6">
@@ -123,7 +140,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
                     <tr>
                       <th className="px-6 py-3">Azienda</th>
                       <th className="px-6 py-3">Settore</th>
-                      <th className="px-6 py-3">Località</th>
+                      <th className="px-6 py-3">Localita</th>
                       <th className="px-6 py-3">Tag</th>
                       <th className="px-6 py-3">Progetto</th>
                       <th className="px-6 py-3">Contatti</th>
@@ -135,6 +152,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
                     {companies.map((company) => {
                       const freeTags = company.tags.filter((t) => !t.startsWith("project:")).slice(0, 3);
                       const projectTags = company.tags.filter((t) => t.startsWith("project:")).slice(0, 2);
+                      const locality = [company.city, company.province, company.region].filter(Boolean).join(", ");
                       return (
                         <tr key={company.id} className="hover:bg-slate-50">
                           <td className="px-6 py-4 font-semibold text-slate-950">
@@ -144,14 +162,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
                             <p className="font-normal text-slate-500">{company.email ?? company.phone ?? "N/D"}</p>
                           </td>
                           <td className="px-6 py-4">{company.industry ?? "N/D"}</td>
-                          <td className="px-6 py-4">
-                            <div className="space-y-1">
-                              <p className="font-medium text-slate-950">
-                                {company.city ? `${company.city}${company.province ? ` (${company.province})` : ""}` : "N/D"}
-                              </p>
-                              <p className="text-slate-500">{company.region ?? "N/D"}</p>
-                            </div>
-                          </td>
+                          <td className="px-6 py-4 text-slate-600">{locality || "N/D"}</td>
                           <td className="px-6 py-4">
                             <div className="flex flex-wrap gap-1">
                               {freeTags.length > 0
@@ -174,6 +185,12 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
                     })}
                   </tbody>
                 </table>
+              </div>
+            )}
+            {meta.totalPages > 1 && (
+              <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
+                <ResultsCount meta={meta} />
+                <PaginationControls meta={meta} params={params} />
               </div>
             )}
           </Card>

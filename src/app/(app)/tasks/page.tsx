@@ -1,10 +1,14 @@
 import { TaskPriority, TaskStatus } from "@prisma/client";
 import { createTask } from "./actions";
-import { Badge, ButtonLink, Card, EmptyState, Notice, PageHeader, SubmitButton } from "@/components/ui";
+import { ButtonLink, Card, EmptyState, Notice, PageHeader, SubmitButton } from "@/components/ui";
+import { PaginationControls, PageSizeSelector, ResultsCount } from "@/components/pagination";
 import { TaskList } from "@/components/productivity";
 import { requireUser } from "@/lib/auth";
 import { readParam, type SearchParamsInput } from "@/lib/crm-filters";
 import { buildTaskWhere, parseTaskFilters } from "@/lib/productivity";
+import { parsePaginationParams, buildSkipTake, buildPaginationMeta, parseSort } from "@/lib/pagination";
+
+const TASK_SORT_FIELDS = ["dueAt", "status", "createdAt", "updatedAt"] as const;
 import { prisma } from "@/lib/prisma";
 
 function listNotice(params: SearchParamsInput) {
@@ -26,18 +30,27 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
   const params = await searchParams;
   const filters = parseTaskFilters(params);
   const notice = listNotice(params);
-  const [tasks, users, companies, contacts, leads, opportunities] = await Promise.all([
+  const { page, pageSize } = parsePaginationParams(params);
+  const { field: sortField, dir: sortDir } = parseSort(params, TASK_SORT_FIELDS, "dueAt", "asc");
+  const { skip, take } = buildSkipTake(page, pageSize);
+  const where = buildTaskWhere(params, user);
+
+  const [tasks, total, users, companies, contacts, leads, opportunities] = await Promise.all([
     prisma.task.findMany({
-      where: buildTaskWhere(params, user),
-      orderBy: [{ status: "asc" }, { dueAt: "asc" }, { updatedAt: "desc" }],
+      where,
+      orderBy: [{ [sortField]: sortDir }, { updatedAt: "desc" }],
+      skip,
+      take,
       include: { owner: true, company: true, contact: true, lead: true, opportunity: true },
     }),
+    prisma.task.count({ where }),
     prisma.user.findMany({ where: { tenantId: user.tenantId, isActive: true }, orderBy: { name: "asc" } }),
     prisma.company.findMany({ where: { tenantId: user.tenantId }, orderBy: { name: "asc" } }),
     prisma.contact.findMany({ where: { tenantId: user.tenantId }, orderBy: { lastName: "asc" } }),
     prisma.lead.findMany({ where: { tenantId: user.tenantId }, orderBy: { title: "asc" } }),
     prisma.opportunity.findMany({ where: { tenantId: user.tenantId }, orderBy: { title: "asc" } }),
   ]);
+  const meta = buildPaginationMeta(total, page, pageSize);
 
   return (
     <>
@@ -189,11 +202,20 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
                 <h3 className="text-lg font-semibold">Le mie attivita</h3>
                 <p className="text-sm text-slate-500">Task, follow-up e scadenze operative.</p>
               </div>
-              <Badge tone="slate">{tasks.length} risultati</Badge>
+              <div className="flex items-center gap-3">
+                <ResultsCount meta={meta} />
+                <PageSizeSelector meta={meta} params={params} />
+              </div>
             </div>
             <div className="p-6">
               {tasks.length === 0 ? <EmptyState message="Nessun task trovato con i filtri correnti." /> : <TaskList tasks={tasks} />}
             </div>
+            {meta.totalPages > 1 && (
+              <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
+                <ResultsCount meta={meta} />
+                <PaginationControls meta={meta} params={params} />
+              </div>
+            )}
           </Card>
         </div>
       </div>

@@ -80,7 +80,8 @@ export async function createActivity(formData: FormData) {
   if (activity.contactId) revalidatePath(`/contacts/${activity.contactId}`);
   if (activity.leadId) revalidatePath(`/leads/${activity.leadId}`);
   if (activity.opportunityId) revalidatePath(`/opportunities/${activity.opportunityId}`);
-  redirect(`/activities/${activity.id}?created=1`);
+  const redirectTo = formData.get("redirectTo");
+  redirect(typeof redirectTo === "string" && redirectTo.startsWith("/") ? redirectTo : `/activities/${activity.id}?created=1`);
 }
 
 export async function updateActivity(formData: FormData) {

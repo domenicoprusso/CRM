@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteCompany, updateCompany } from "../actions";
+import { createActivity } from "../../activities/actions";
+import { createTask } from "../../tasks/actions";
 import { Badge, ButtonLink, Card, DangerButton, EmptyState, FieldValue, Notice, PageHeader, SubmitButton } from "@/components/ui";
 import { ActivityTimeline, TaskList, UnifiedTimeline } from "@/components/productivity";
 import { requireUser } from "@/lib/auth";
@@ -14,6 +16,8 @@ type PageProps = {
 };
 
 function detailNotice(params: SearchParamsInput) {
+  if (readParam(params, "activity_created") === "1") return { tone: "success" as const, message: "Attivita registrata." };
+  if (readParam(params, "task_created") === "1") return { tone: "success" as const, message: "Task creato." };
   if (readParam(params, "updated") === "1") return { tone: "success" as const, message: "Azienda aggiornata." };
   if (readParam(params, "error") === "confirm") return { tone: "error" as const, message: "Per eliminare devi scrivere ELIMINA nel campo di conferma." };
   if (readParam(params, "error") === "delete-linked") return { tone: "error" as const, message: "Eliminazione bloccata: l'azienda ha record collegati." };
@@ -125,6 +129,28 @@ export default async function CompanyDetailPage({ params, searchParams }: PagePr
         </div>
 
         <div className="space-y-6">
+          <Card>
+            <h3 className="text-lg font-semibold">+ Attivita rapida</h3>
+            <form action={createActivity} className="mt-3 grid gap-2">
+              <input type="hidden" name="companyId" value={company.id} />
+              <input type="hidden" name="redirectTo" value={`/companies/${company.id}?activity_created=1`} />
+              <input name="subject" placeholder="Soggetto (es. Chiamata, Email...)" required className="rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+              <textarea name="body" placeholder="Note (opzionale)" rows={2} className="rounded-xl border border-slate-200 px-3 py-2 text-sm resize-none" />
+              <SubmitButton label="Registra attivita" />
+            </form>
+          </Card>
+
+          <Card>
+            <h3 className="text-lg font-semibold">+ Task rapido</h3>
+            <form action={createTask} className="mt-3 grid gap-2">
+              <input type="hidden" name="companyId" value={company.id} />
+              <input type="hidden" name="redirectTo" value={`/companies/${company.id}?task_created=1`} />
+              <input name="title" placeholder="Titolo task" required className="rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+              <input name="dueAt" type="date" className="rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+              <SubmitButton label="Crea task" />
+            </form>
+          </Card>
+
           <Card>
             <h3 className="text-lg font-semibold">Modifica azienda</h3>
             <form action={updateCompany} className="mt-4 grid gap-3">

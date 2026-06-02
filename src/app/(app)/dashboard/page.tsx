@@ -70,8 +70,17 @@ type MyDayTaskItem = {
   opportunity: { id: string; title: string } | null;
 };
 
+function taskContextHref(task: MyDayTaskItem): string | null {
+  if (task.company) return `/companies/${task.company.id}`;
+  if (task.contact) return `/contacts/${task.contact.id}`;
+  if (task.lead) return `/leads/${task.lead.id}`;
+  if (task.opportunity) return `/opportunities/${task.opportunity.id}`;
+  return null;
+}
+
 function TaskRow({ task, dateLabel }: { task: MyDayTaskItem; dateLabel: string | null }) {
   const context = taskContextLabel(task);
+  const contextHref = taskContextHref(task);
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3">
       <div className="min-w-0 flex-1">
@@ -81,7 +90,11 @@ function TaskRow({ task, dateLabel }: { task: MyDayTaskItem; dateLabel: string |
         <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-400">
           {dateLabel && <span>{dateLabel}</span>}
           {context && <span>·</span>}
-          {context && <span>{context}</span>}
+          {context && contextHref ? (
+            <Link href={contextHref} className="hover:text-brand-600 hover:underline">{context}</Link>
+          ) : context ? (
+            <span>{context}</span>
+          ) : null}
         </div>
       </div>
       <Badge tone={priorityTone(task.priority)}>{priorityLabel(task.priority)}</Badge>
