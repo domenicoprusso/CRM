@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { importJobStats, looksLikeTeamSystemCompanyExport, parseCsv, parseTeamSystemCompanyExport } from "@/lib/imports";
+import { importJobExecutionStats, importJobStats, looksLikeTeamSystemCompanyExport, parseCsv, parseTeamSystemCompanyExport } from "@/lib/imports";
 
 describe("import helpers", () => {
   it("parses csv with semicolon delimiter and quoted fields", () => {
@@ -29,6 +29,34 @@ describe("import helpers", () => {
       duplicate: 1,
       invalid: 1,
       imported: 1,
+    });
+  });
+
+  it("summarizes execution outcomes and skipped row reasons", () => {
+    const job = {
+      rowsTotal: 4,
+      rowsImported: 1,
+      rows: [
+        { rowNumber: 2, importedEntityId: "company_1", normalizedData: { meta: { executionResult: "created", state: "imported" } } },
+        { rowNumber: 3, normalizedData: { meta: { executionResult: "duplicate_existing", state: "duplicate" } } },
+        { rowNumber: 4, normalizedData: { meta: { executionResult: "duplicate_in_file", state: "duplicate" } } },
+        { rowNumber: 5, normalizedData: { meta: { executionResult: "invalid", state: "invalid" } } },
+      ],
+    };
+
+    const stats = importJobExecutionStats(job);
+
+    expect(stats).toEqual({
+      created: 1,
+      duplicateExisting: 1,
+      duplicateInFile: 1,
+      invalid: 1,
+      skipped: 3,
+      skippedRows: [
+        { rowNumber: 3, reason: "duplicate_existing" },
+        { rowNumber: 4, reason: "duplicate_in_file" },
+        { rowNumber: 5, reason: "invalid" },
+      ],
     });
   });
 

@@ -17,6 +17,7 @@ export const importEntityLabels = {
 
 export type ImportEntity = keyof typeof importEntityLabels;
 type RowState = "valid" | "duplicate" | "invalid";
+type RowExecutionResult = "created" | "duplicate_existing" | "duplicate_in_file" | "invalid";
 
 type ImportContext = {
   tenantId: string;
@@ -36,6 +37,13 @@ type PreviewRow = {
   errors: string[];
   importedEntity: string | null;
   importedEntityId: string | null;
+};
+
+type ImportRowExecutionMeta = {
+  state?: RowState | "imported";
+  dedupeKey?: string;
+  duplicateOf?: string | null;
+  executionResult?: RowExecutionResult;
 };
 
 type ParsedCsv = {
@@ -358,6 +366,26 @@ function dedupeState(existingId: string | null, seen: Set<string>, key: string) 
 
 function previewMeta(entity: ImportEntity, state: RowState, dedupeKey: string, duplicateOf: string | null) {
   return { entity, state, dedupeKey, duplicateOf };
+}
+
+function executionMeta(normalizedData: Record<string, unknown>, executionResult: RowExecutionResult) {
+  const currentMeta = (normalizedData.meta ?? {}) as Record<string, unknown>;
+  return {
+    ...normalizedData,
+    meta: {
+      ...currentMeta,
+      state: executionResult === "created" ? "imported" : executionResult === "invalid" ? "invalid" : "duplicate",
+      executionResult,
+    },
+  };
+}
+
+function executionResultFromPreview(meta: ImportRowExecutionMeta): RowExecutionResult | null {
+  if (meta.state === "invalid") return "invalid";
+  if (meta.state === "duplicate") {
+    return meta.duplicateOf && meta.dedupeKey && meta.duplicateOf === meta.dedupeKey ? "duplicate_in_file" : "duplicate_existing";
+  }
+  return null;
 }
 
 function companyAliases() {
@@ -1005,12 +1033,23 @@ export async function executeImportJob(prismaClient: typeof prisma, tenantId: st
   const seen = new Set<string>();
   let rowsImported = 0;
   let skipped = 0;
+  const skippedRows: Array<{ rowNumber: number; reason: Exclude<RowExecutionResult, "created"> }> = [];
 
   for (const row of job.rows) {
     const normalized = row.normalizedData as Record<string, unknown>;
-    const meta = (normalized.meta ?? {}) as { state?: RowState; dedupeKey?: string };
+    const meta = (normalized.meta ?? {}) as ImportRowExecutionMeta;
     if (meta.state === "invalid" || meta.state === "duplicate") {
       skipped += 1;
+      const reason = executionResultFromPreview(meta) ?? "invalid";
+      skippedRows.push({ rowNumber: row.rowNumber, reason: reason === "created" ? "invalid" : reason });
+      await prismaClient.importRow.updateMany({
+        where: { id: row.id, importJob: { tenantId } },
+        data: {
+          importedEntity: null,
+          importedEntityId: null,
+          normalizedData: executionMeta(normalized, reason),
+        },
+      });
       continue;
     }
 
@@ -1018,12 +1057,31 @@ export async function executeImportJob(prismaClient: typeof prisma, tenantId: st
     const { normalized: freshNormalized, errors, existingId } = buildNormalizedRow(entity, values, fieldMapping.mapping, ctx, seen, existingMaps);
     if (errors.length > 0 || (freshNormalized.meta as Record<string, unknown>).state === "invalid") {
       skipped += 1;
+      skippedRows.push({ rowNumber: row.rowNumber, reason: "invalid" });
+      await prismaClient.importRow.updateMany({
+        where: { id: row.id, importJob: { tenantId } },
+        data: {
+          importedEntity: null,
+          importedEntityId: null,
+          normalizedData: executionMeta(freshNormalized, "invalid"),
+        },
+      });
       continue;
     }
     const dedupeKey = (freshNormalized.meta as Record<string, unknown>).dedupeKey as string;
     const state = createOrSkipState(existingId, dedupeKey, seen);
     if (state.duplicate) {
       skipped += 1;
+      const reason: Exclude<RowExecutionResult, "created"> = existingId ? "duplicate_existing" : "duplicate_in_file";
+      skippedRows.push({ rowNumber: row.rowNumber, reason });
+      await prismaClient.importRow.updateMany({
+        where: { id: row.id, importJob: { tenantId } },
+        data: {
+          importedEntity: null,
+          importedEntityId: null,
+          normalizedData: executionMeta(freshNormalized, reason),
+        },
+      });
       continue;
     }
 
@@ -1050,15 +1108,38 @@ export async function executeImportJob(prismaClient: typeof prisma, tenantId: st
     }
     await prismaClient.importRow.updateMany({
       where: { id: row.id, importJob: { tenantId } },
-      data: { importedEntity: importedEntityName(entity), importedEntityId: created.id, normalizedData: { ...freshNormalized, meta: { ...(freshNormalized.meta as Record<string, unknown>), state: "imported" } } },
+      data: {
+        importedEntity: importedEntityName(entity),
+        importedEntityId: created.id,
+        normalizedData: executionMeta(freshNormalized, "created"),
+      },
     });
   }
+
+  const validRows = job.rows.filter((row) => ((row.normalizedData as Record<string, unknown>).meta as ImportRowExecutionMeta | undefined)?.state === "valid").length;
+  const shouldFail = rowsImported === 0 && validRows > 0;
+  const executionReport = {
+    rowsImported,
+    skipped,
+    validRows,
+    skippedRows,
+  };
+  const errorLogData = shouldFail
+    ? ({
+        message: "no-rows-imported",
+        explanation: "Valid rows were present but no records were created during execute.",
+        executionReport,
+      } as Prisma.InputJsonValue)
+    : job.errorLog
+      ? (job.errorLog as Prisma.InputJsonValue)
+      : undefined;
 
   await prismaClient.importJob.updateMany({
     where: { id: job.id, tenantId },
     data: {
-      status: "COMPLETED",
+      status: shouldFail ? "FAILED" : "COMPLETED",
       rowsImported,
+      ...(errorLogData ? { errorLog: errorLogData } : {}),
       rollbackToken: randomUUID(),
     },
   });
@@ -1152,4 +1233,31 @@ export function importJobStats(job: ImportJobStatsLike) {
   const duplicate = rows.filter((row) => rowState(row) === "duplicate").length;
   const invalid = rows.filter((row) => rowState(row) === "invalid").length;
   return { total: job.rowsTotal, valid, duplicate, invalid, imported: job.rowsImported };
+}
+
+type ImportExecutionRowLike = { rowNumber: number; normalizedData: Record<string, unknown>; importedEntityId?: string | null; importedEntity?: string | null };
+type ImportJobExecutionStatsLike = Omit<NonNullable<ImportJobStatsLike>, "rows"> & { rows: ImportExecutionRowLike[] };
+
+export function importJobExecutionStats(job: ImportJobExecutionStatsLike) {
+  if (!job) return null;
+  const rows = job.rows.map((row) => {
+    const meta = (row.normalizedData.meta as ImportRowExecutionMeta | undefined) ?? {};
+    const result: RowExecutionResult | null =
+      meta.executionResult ??
+      (row.importedEntityId ? "created" : meta.state === "invalid" ? "invalid" : meta.state === "duplicate" ? executionResultFromPreview(meta) ?? "duplicate_existing" : null);
+    return { rowNumber: row.rowNumber, result };
+  });
+  const created = rows.filter((row) => row.result === "created").length;
+  const duplicateExisting = rows.filter((row) => row.result === "duplicate_existing").length;
+  const duplicateInFile = rows.filter((row) => row.result === "duplicate_in_file").length;
+  const invalid = rows.filter((row) => row.result === "invalid").length;
+  const skipped = duplicateExisting + duplicateInFile + invalid;
+  return {
+    created,
+    duplicateExisting,
+    duplicateInFile,
+    invalid,
+    skipped,
+    skippedRows: rows.filter((row) => row.result && row.result !== "created").map((row) => ({ rowNumber: row.rowNumber, reason: row.result as Exclude<RowExecutionResult, "created"> })),
+  };
 }

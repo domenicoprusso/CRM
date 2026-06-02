@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
-import { getImportJobDetail, importEntityLabels, importJobStats } from "@/lib/imports";
+import { getImportJobDetail, importEntityLabels, importJobExecutionStats, importJobStats } from "@/lib/imports";
 import { prisma } from "@/lib/prisma";
-import { ButtonLink, Card, DangerButton, EmptyState, PageHeader, SubmitButton } from "@/components/ui";
+import { Badge, ButtonLink, Card, DangerButton, EmptyState, PageHeader, SubmitButton } from "@/components/ui";
 import { ImportPreviewTable, ImportStatCard, ImportStatusBadge } from "@/components/imports";
 
 function formatDate(value: Date) {
@@ -23,6 +23,16 @@ export default async function ImportDetailPage({ params }: { params: Promise<{ i
     normalizedData: row.normalizedData as Record<string, unknown>,
     errors: (row.errors as string[] | null) ?? null,
   }));
+  const executionStats = job.status === "PREVIEWED" ? null : importJobExecutionStats({
+    rowsTotal: job.rowsTotal,
+    rowsImported: job.rowsImported,
+    rows: job.rows.map((row) => ({
+      rowNumber: row.rowNumber,
+      normalizedData: row.normalizedData as Record<string, unknown>,
+      importedEntity: row.importedEntity,
+      importedEntityId: row.importedEntityId,
+    })),
+  });
   const stats = importJobStats({
     rowsTotal: job.rowsTotal,
     rowsImported: job.rowsImported,
@@ -115,18 +125,51 @@ export default async function ImportDetailPage({ params }: { params: Promise<{ i
 
         <Card>
           <h2 className="text-lg font-semibold text-slate-950">Report finale</h2>
-          {job.status === "COMPLETED" ? (
-            <div className="mt-4 space-y-3 text-sm text-slate-600">
-              <p>Righe importate: {job.rowsImported}</p>
-              <p>Righe processate: {job.rowsTotal}</p>
-              <p>Duplicate: {stats?.duplicate ?? 0}</p>
-              <p>Errori: {stats?.invalid ?? 0}</p>
+          {job.status === "PREVIEWED" ? (
+            <EmptyState message="Il report finale apparira dopo l&apos;esecuzione dell&apos;import." />
+          ) : executionStats ? (
+            <div className="mt-4 space-y-4 text-sm text-slate-600">
+              <div className="grid gap-4 md:grid-cols-4">
+                <ImportStatCard label="Importate" value={executionStats.created} />
+                <ImportStatCard label="Saltate" value={executionStats.skipped} />
+                <ImportStatCard label="Duplicate esistenti" value={executionStats.duplicateExisting} />
+                <ImportStatCard label="Duplicate file" value={executionStats.duplicateInFile} />
+              </div>
+
+              {executionStats.skippedRows.length > 0 ? (
+                <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-4 py-3">Riga</th>
+                        <th className="px-4 py-3">Motivo</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {executionStats.skippedRows.map((row) => (
+                        <tr key={`${row.rowNumber}-${row.reason}`}>
+                          <td className="px-4 py-3 font-medium text-slate-950">{row.rowNumber}</td>
+                          <td className="px-4 py-3">
+                            <Badge tone={row.reason === "invalid" ? "red" : "amber"}>{row.reason}</Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+
+              {job.status === "FAILED" ? (
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+                  Import non completato: nessuna riga e stata creata nonostante fossero presenti righe valide.
+                </div>
+              ) : null}
             </div>
           ) : (
-            <EmptyState message="Il report finale apparira dopo l&apos;esecuzione dell&apos;import." />
+            <EmptyState message="Il report finale non e disponibile." />
           )}
 
-          {job.errorLog ? (
+          {job.status === "FAILED" && job.errorLog ? (
             <div className="mt-4 rounded-2xl border border-slate-100 p-4 text-sm text-slate-600">
               <pre className="whitespace-pre-wrap text-xs">{JSON.stringify(job.errorLog, null, 2)}</pre>
             </div>
