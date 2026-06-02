@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Phone } from "lucide-react";
 import { notFound } from "next/navigation";
 import { deleteOpportunity, quickCallOnOpportunity, setOpportunityOutcome, updateOpportunity } from "../actions";
 import { Badge, ButtonLink, Card, DangerButton, FieldValue, Notice, PageHeader, SubmitButton } from "@/components/ui";
@@ -87,8 +88,10 @@ export default async function OpportunityDetailPage({ params, searchParams }: Pa
             {opportunity.notes ? <p className="mt-5 whitespace-pre-wrap text-sm text-slate-600">{opportunity.notes}</p> : null}
           </Card>
 
-          <Card>
-            <h3 className="text-lg font-semibold text-slate-950">Next Action</h3>
+          <Card className={!nextAction ? "border-amber-300 bg-amber-50/40" : undefined}>
+            <h3 className={`text-lg font-semibold ${!nextAction ? "text-amber-800" : "text-slate-950"}`}>
+              Next Action{!nextAction ? " — nessuna azione pianificata" : ""}
+            </h3>
             <div className="mt-4">
               <NextActionPanel task={nextAction ? { ...nextAction, owner: nextAction.owner } : null} />
             </div>
@@ -110,16 +113,16 @@ export default async function OpportunityDetailPage({ params, searchParams }: Pa
 
           <Card>
             <h3 className="text-lg font-semibold text-slate-950">Azioni rapide</h3>
-            <div className="mt-4 flex flex-wrap gap-3">
+            <div className="mt-4 flex flex-wrap items-center gap-3">
               <form action={setOpportunityOutcome}>
                 <input type="hidden" name="id" value={opportunity.id} />
                 <input type="hidden" name="outcome" value="won" />
-                <SubmitButton label="Segna vinta" />
+                <SubmitButton label="Segna vinta" className="bg-emerald-600 px-5 py-2.5 text-base font-bold hover:bg-emerald-700" />
               </form>
               <form action={setOpportunityOutcome}>
                 <input type="hidden" name="id" value={opportunity.id} />
                 <input type="hidden" name="outcome" value="lost" />
-                <DangerButton label="Segna persa" />
+                <DangerButton label="Segna persa" className="bg-red-500 px-3 py-1.5 text-xs hover:bg-red-600" />
               </form>
               <ButtonLink href="/pipeline">Vai alla pipeline</ButtonLink>
             </div>
@@ -127,8 +130,11 @@ export default async function OpportunityDetailPage({ params, searchParams }: Pa
         </div>
 
         <div className="space-y-6">
-          <Card className="border-brand-100 bg-brand-50/40">
-            <h3 className="text-lg font-semibold text-brand-900">Ho chiamato</h3>
+          <Card className="border-brand-200 bg-brand-50/60">
+            <h3 className="flex items-center gap-2 text-xl font-bold text-brand-900">
+              <Phone className="h-5 w-5 shrink-0" />
+              Ho chiamato
+            </h3>
             <p className="mt-1 text-sm text-slate-500">Registra la chiamata in 3 secondi. Se serve, aggiungi subito la prossima azione.</p>
             <form action={quickCallOnOpportunity} className="mt-4 grid gap-3">
               <input type="hidden" name="opportunityId" value={opportunity.id} />
@@ -186,8 +192,8 @@ export default async function OpportunityDetailPage({ params, searchParams }: Pa
           </Card>
 
           <Card className="border-red-100">
-            <h3 className="text-lg font-semibold text-red-700">Elimina opportunita</h3>
-            <p className="mt-2 text-sm text-slate-500">
+            <h3 className="text-sm font-semibold text-red-600">Elimina opportunita</h3>
+            <p className="mt-1 text-xs text-slate-400">
               Disponibile solo senza record collegati. Collegamenti: attivita {opportunity._count.activities}, task {opportunity._count.tasks}, documenti {opportunity._count.documents}.
             </p>
             <form action={deleteOpportunity} className="mt-4 grid gap-3">
