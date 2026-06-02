@@ -13,6 +13,7 @@ import {
   loginSchema,
   opportunitySchema,
   opportunityUpdateSchema,
+  registerSchema,
   taskSchema,
   taskUpdateSchema,
 } from "@/lib/validators";
@@ -109,6 +110,13 @@ describe("CRM validation schemas", () => {
   it("requires login passwords with at least eight characters", () => {
     expect(loginSchema.safeParse({ email: "admin@example.com", password: "short" }).success).toBe(false);
     expect(loginSchema.safeParse({ email: "admin@example.com", password: "ChangeMe123!" }).success).toBe(true);
+  });
+
+  it("validates initial registration credentials", () => {
+    const parsed = registerSchema.parse({ name: "Admin CRM", email: " ADMIN@Example.COM ", password: "ChangeMe123!" });
+
+    expect(parsed.email).toBe("admin@example.com");
+    expect(registerSchema.safeParse({ name: "Admin CRM", email: "admin@example.com", password: "short" }).success).toBe(false);
   });
 
   it("validates activity payloads", () => {
