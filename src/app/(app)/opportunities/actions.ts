@@ -1,6 +1,88 @@
 "use server";
 
+import { ActivityType, TaskPriority, TaskStatus } from "@prisma/client";
 import { Prisma } from "@prisma/client";
+
+const ESITO_LABELS: Record<string, string> = {
+  risposto: "Chiamata — Risposto",
+  non_risposto: "Chiamata — Non risposto",
+  da_richiamare: "Chiamata — Da richiamare",
+};
+
+export async function quickCallOnOpportunity(formData: FormData) {
+  const user = await requireUser("activity:write");
+  const opportunityId = String(formData.get("opportunityId") ?? "");
+  const esito = String(formData.get("esito") ?? "risposto");
+  const nota = String(formData.get("nota") ?? "").trim();
+  const prossimaAzione = String(formData.get("prossima_azione") ?? "").trim();
+  const prossimaData = String(formData.get("prossima_data") ?? "").trim();
+
+  const opp = await prisma.opportunity.findFirst({
+    where: { id: opportunityId, tenantId: user.tenantId },
+    select: { id: true, companyId: true, contactId: true },
+  });
+  if (!opp) return redirect(`/opportunities?error=not-found`);
+
+  const subject = ESITO_LABELS[esito] ?? "Chiamata";
+  const body = nota || null;
+
+  await prisma.$transaction(async (tx) => {
+    const activity = await tx.activity.create({
+      data: {
+        tenantId: user.tenantId,
+        userId: user.id,
+        type: ActivityType.CALL,
+        subject,
+        body,
+        occurredAt: new Date(),
+        opportunityId: opp.id,
+        companyId: opp.companyId,
+        contactId: opp.contactId,
+      },
+    });
+    await tx.auditLog.create({
+      data: {
+        tenantId: user.tenantId,
+        userId: user.id,
+        action: "CREATE",
+        entityType: "Activity",
+        entityId: activity.id,
+        after: JSON.parse(JSON.stringify(activity)),
+      },
+    });
+
+    if (prossimaAzione) {
+      const dueAt = prossimaData ? new Date(prossimaData) : null;
+      const task = await tx.task.create({
+        data: {
+          tenantId: user.tenantId,
+          ownerId: user.id,
+          title: prossimaAzione,
+          status: TaskStatus.TODO,
+          priority: TaskPriority.MEDIUM,
+          dueAt,
+          opportunityId: opp.id,
+          companyId: opp.companyId,
+          contactId: opp.contactId,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          tenantId: user.tenantId,
+          userId: user.id,
+          action: "CREATE",
+          entityType: "Task",
+          entityId: task.id,
+          after: JSON.parse(JSON.stringify(task)),
+        },
+      });
+    }
+  });
+
+  revalidatePath(`/opportunities/${opportunityId}`);
+  revalidatePath("/dashboard");
+  redirect(`/opportunities/${opportunityId}?logged=1`);
+}
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { z } from "zod";

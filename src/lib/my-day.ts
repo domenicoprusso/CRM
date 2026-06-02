@@ -68,6 +68,7 @@ export type MyDaySnapshot = {
   opportunitiesWithoutNextActionTotal: number;
   newLeads: MyDayLead[];
   newLeadsTotal: number;
+  staleOpportunitiesTotal: number;
 };
 
 const taskInclude = {
@@ -92,6 +93,8 @@ export async function getMyDaySnapshot(
     status: { notIn: COMPLETED_TASK_STATUSES },
   };
 
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
   const oppNoNextActionWhere = {
     tenantId,
     ownerId: userId,
@@ -109,6 +112,7 @@ export async function getMyDaySnapshot(
     followupTodayTasks,
     opportunitiesWithoutNextActionCount,
     opportunitiesWithoutNextAction,
+    staleOpportunitiesCount,
     newLeadsCount,
     newLeads,
   ] = await Promise.all([
@@ -156,6 +160,15 @@ export async function getMyDaySnapshot(
         expectedCloseDate: true,
         company: { select: { id: true, name: true } },
         stage: { select: { id: true, name: true, isWon: true, isLost: true } },
+      },
+    }),
+    // stale open opportunities (mine, not updated in 7+ days)
+    prismaClient.opportunity.count({
+      where: {
+        tenantId,
+        ownerId: userId,
+        stage: { isWon: false, isLost: false },
+        updatedAt: { lt: sevenDaysAgo },
       },
     }),
     prismaClient.lead.count({ where: { tenantId, ownerId: userId, status: LeadStatus.NEW } }),
@@ -216,5 +229,6 @@ export async function getMyDaySnapshot(
       contact: lead.contact,
     })),
     newLeadsTotal: newLeadsCount,
+    staleOpportunitiesTotal: staleOpportunitiesCount,
   };
 }

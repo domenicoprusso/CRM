@@ -1,7 +1,7 @@
 import { LeadStatus } from "@prisma/client";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { deleteLead, updateLead } from "../actions";
+import { deleteLead, quickCallOnLead, updateLead } from "../actions";
 import { convertLeadToOpportunity } from "../../opportunities/actions";
 import { Badge, ButtonLink, Card, DangerButton, FieldValue, Notice, PageHeader, SubmitButton } from "@/components/ui";
 import { ActivityTimeline, TaskList } from "@/components/productivity";
@@ -16,6 +16,7 @@ type PageProps = {
 };
 
 function detailNotice(params: SearchParamsInput) {
+  if (readParam(params, "logged") === "1") return { tone: "success" as const, message: "Chiamata registrata." };
   if (readParam(params, "updated") === "1") return { tone: "success" as const, message: "Lead aggiornato." };
   if (readParam(params, "error") === "confirm") return { tone: "error" as const, message: "Per eliminare devi scrivere ELIMINA nel campo di conferma." };
   if (readParam(params, "error") === "delete-linked") return { tone: "error" as const, message: "Eliminazione bloccata: il lead ha record collegati." };
@@ -85,6 +86,25 @@ export default async function LeadDetailPage({ params, searchParams }: PageProps
         </div>
 
         <div className="space-y-6">
+          <Card className="border-brand-100 bg-brand-50/40">
+            <h3 className="text-lg font-semibold text-brand-900">Ho chiamato</h3>
+            <p className="mt-1 text-sm text-slate-500">Registra la chiamata in 3 secondi. Se serve, aggiungi subito la prossima azione.</p>
+            <form action={quickCallOnLead} className="mt-4 grid gap-3">
+              <input type="hidden" name="leadId" value={lead.id} />
+              <select name="esito" defaultValue="risposto" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
+                <option value="risposto">Risposto — ho parlato con il cliente</option>
+                <option value="non_risposto">Non risposto — non disponibile</option>
+                <option value="da_richiamare">Da richiamare — ha chiesto di essere richiamato</option>
+              </select>
+              <textarea name="nota" placeholder="Nota breve (opzionale)" rows={2} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm resize-none" />
+              <input name="prossima_azione" placeholder="Prossima azione (opzionale, crea un task)" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm" />
+              <input name="prossima_data" type="date" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm" />
+              <button className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-700">
+                Registra chiamata
+              </button>
+            </form>
+          </Card>
+
           <Card>
             <h3 className="text-lg font-semibold">Modifica lead</h3>
             <form action={updateLead} className="mt-4 grid gap-3">

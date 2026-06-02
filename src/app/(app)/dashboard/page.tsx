@@ -1,14 +1,16 @@
-﻿import Link from "next/link";
-import { AlertCircle, Clock, Bell, TrendingUp, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { AlertCircle, Bell, Clock, Sparkles, TrendingUp } from "lucide-react";
 import { Badge, ButtonLink, Card, EmptyState, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { getMyDaySnapshot, MY_DAY_LIMIT } from "@/lib/my-day";
 import { prisma } from "@/lib/prisma";
+
 const dayFormatter = new Intl.DateTimeFormat("it-IT", {
   day: "2-digit",
   month: "2-digit",
   year: "numeric",
 });
+
 const dateTimeFormatter = new Intl.DateTimeFormat("it-IT", {
   day: "2-digit",
   month: "2-digit",
@@ -16,17 +18,21 @@ const dateTimeFormatter = new Intl.DateTimeFormat("it-IT", {
   hour: "2-digit",
   minute: "2-digit",
 });
+
 function formatDate(date: Date | null | undefined) {
   return date ? dayFormatter.format(date) : null;
 }
+
 function formatDateTime(date: Date | null | undefined) {
   return date ? dateTimeFormatter.format(date) : null;
 }
+
 function priorityTone(priority: string): "red" | "amber" | "slate" {
   if (priority === "URGENT" || priority === "HIGH") return "red";
   if (priority === "MEDIUM") return "amber";
   return "slate";
 }
+
 function priorityLabel(priority: string) {
   const labels: Record<string, string> = {
     URGENT: "Urgente",
@@ -36,6 +42,7 @@ function priorityLabel(priority: string) {
   };
   return labels[priority] ?? priority;
 }
+
 function taskContextLabel(task: {
   company: { name: string } | null;
   contact: { firstName: string; lastName: string } | null;
@@ -50,6 +57,7 @@ function taskContextLabel(task: {
     null
   );
 }
+
 type MyDayTaskItem = {
   id: string;
   title: string;
@@ -61,6 +69,7 @@ type MyDayTaskItem = {
   lead: { id: string; title: string } | null;
   opportunity: { id: string; title: string } | null;
 };
+
 function TaskRow({ task, dateLabel }: { task: MyDayTaskItem; dateLabel: string | null }) {
   const context = taskContextLabel(task);
   return (
@@ -71,7 +80,7 @@ function TaskRow({ task, dateLabel }: { task: MyDayTaskItem; dateLabel: string |
         </Link>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
           {dateLabel && <span>{dateLabel}</span>}
-          {context && <span className="text-slate-400">Â·</span>}
+          {context && <span className="text-slate-400">&middot;</span>}
           {context && <span>{context}</span>}
         </div>
       </div>
@@ -79,18 +88,21 @@ function TaskRow({ task, dateLabel }: { task: MyDayTaskItem; dateLabel: string |
     </div>
   );
 }
+
 function SectionHeader({
   icon: Icon,
   title,
   total,
   seeAllHref,
   tone,
+  anchorId,
 }: {
   icon: React.ElementType;
   title: string;
   total: number;
   seeAllHref: string;
   tone: "red" | "amber" | "brand" | "slate";
+  anchorId?: string;
 }) {
   const tones = {
     red: "text-red-600",
@@ -98,13 +110,12 @@ function SectionHeader({
     brand: "text-brand-600",
     slate: "text-slate-600",
   };
-  const badgeTone: "red" | "amber" | "brand" | "slate" = tone;
   return (
-    <div className="mb-4 flex items-center justify-between gap-3">
+    <div id={anchorId} className="mb-4 flex items-center justify-between gap-3">
       <div className="flex items-center gap-2">
         <Icon className={`h-5 w-5 ${tones[tone]}`} />
         <h3 className="text-base font-semibold text-slate-950">{title}</h3>
-        {total > 0 && <Badge tone={badgeTone}>{total}</Badge>}
+        {total > 0 && <Badge tone={tone}>{total}</Badge>}
       </div>
       {total > MY_DAY_LIMIT && (
         <Link href={seeAllHref} className="text-xs font-semibold text-brand-600 hover:text-brand-800 hover:underline">
@@ -114,22 +125,59 @@ function SectionHeader({
     </div>
   );
 }
+
 export default async function DashboardPage() {
   const user = await requireUser("dashboard:read");
   const snapshot = await getMyDaySnapshot(prisma, user.tenantId, user.id);
+
   const totalAlerts =
     snapshot.overdueTotal +
     snapshot.dueTodayTotal +
     snapshot.followupTodayTotal +
     snapshot.opportunitiesWithoutNextActionTotal;
+
+  // Smart alert banner
+  const alertParts: string[] = [];
+  if (snapshot.overdueTotal > 0)
+    alertParts.push(`${snapshot.overdueTotal} task scadut${snapshot.overdueTotal === 1 ? "o" : "i"}`);
+  if (snapshot.staleOpportunitiesTotal > 0)
+    alertParts.push(
+      `${snapshot.staleOpportunitiesTotal} opportunit${snapshot.staleOpportunitiesTotal === 1 ? "a ferma" : "a ferme"} da piu di 7 giorni`,
+    );
+  const alertMessage = alertParts.length > 0 ? `Hai ${alertParts.join(" e ")}. Vuoi partire da qui?` : null;
+
   return (
     <>
       <PageHeader
         title="My Day"
-        description={`${snapshot.today} Â· Ciao ${user.name.split(" ")[0]}, ecco la tua giornata.`}
+        description={`${snapshot.today} — Ciao ${user.name.split(" ")[0]}, ecco la tua giornata.`}
         action={<ButtonLink href="/reports">Report manageriale</ButtonLink>}
       />
-      {totalAlerts === 0 && snapshot.newLeadsTotal === 0 ? (
+
+      {/* Smart alert banner */}
+      {alertMessage ? (
+        <div className="mb-6 flex items-start gap-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-amber-900">{alertMessage}</p>
+            <div className="mt-2 flex flex-wrap gap-3">
+              {snapshot.overdueTotal > 0 && (
+                <a href="#overdue" className="text-sm font-medium text-amber-700 underline hover:text-amber-900">
+                  Vai ai task scaduti
+                </a>
+              )}
+              {snapshot.staleOpportunitiesTotal > 0 && (
+                <Link href="/opportunities?owner=me" className="text-sm font-medium text-amber-700 underline hover:text-amber-900">
+                  Vedi opportunita ferme
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* All clear */}
+      {totalAlerts === 0 && snapshot.newLeadsTotal === 0 && snapshot.staleOpportunitiesTotal === 0 ? (
         <Card className="mb-6">
           <div className="flex items-center gap-3">
             <Sparkles className="h-6 w-6 text-brand-600" />
@@ -140,6 +188,7 @@ export default async function DashboardPage() {
           </div>
         </Card>
       ) : null}
+
       {/* Task scaduti */}
       <Card className="mb-6">
         <SectionHeader
@@ -148,21 +197,19 @@ export default async function DashboardPage() {
           total={snapshot.overdueTotal}
           seeAllHref="/tasks?due=overdue&owner=me"
           tone="red"
+          anchorId="overdue"
         />
         {snapshot.overdueTasks.length === 0 ? (
           <EmptyState message="Nessun task scaduto. Ottimo lavoro!" />
         ) : (
           <div className="space-y-3">
             {snapshot.overdueTasks.map((task) => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                dateLabel={task.dueAt ? `Scaduto il ${formatDate(task.dueAt)}` : null}
-              />
+              <TaskRow key={task.id} task={task} dateLabel={task.dueAt ? `Scaduto il ${formatDate(task.dueAt)}` : null} />
             ))}
           </div>
         )}
       </Card>
+
       {/* Task in scadenza oggi */}
       <Card className="mb-6">
         <SectionHeader
@@ -177,15 +224,12 @@ export default async function DashboardPage() {
         ) : (
           <div className="space-y-3">
             {snapshot.dueTodayTasks.map((task) => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                dateLabel={task.dueAt ? `Scadenza ${formatDate(task.dueAt)}` : null}
-              />
+              <TaskRow key={task.id} task={task} dateLabel={task.dueAt ? `Scadenza ${formatDate(task.dueAt)}` : null} />
             ))}
           </div>
         )}
       </Card>
+
       {/* Follow-up di oggi */}
       <Card className="mb-6">
         <SectionHeader
@@ -209,35 +253,33 @@ export default async function DashboardPage() {
           </div>
         )}
       </Card>
+
       <div className="grid gap-6 xl:grid-cols-2">
-        {/* OpportunitÃ  senza next action */}
+        {/* Opportunita senza next action */}
         <Card>
           <SectionHeader
             icon={TrendingUp}
-            title="OpportunitÃ  senza next action"
+            title="Opportunita senza next action"
             total={snapshot.opportunitiesWithoutNextActionTotal}
             seeAllHref="/opportunities?owner=me"
             tone="slate"
           />
           {snapshot.opportunitiesWithoutNextAction.length === 0 ? (
-            <EmptyState message="Tutte le tue opportunitÃ  hanno almeno un task aperto." />
+            <EmptyState message="Tutte le tue opportunita hanno almeno un task aperto." />
           ) : (
             <div className="space-y-3">
               {snapshot.opportunitiesWithoutNextAction.map((opp) => {
                 const closeDate = formatDate(opp.expectedCloseDate);
                 return (
                   <div key={opp.id} className="rounded-2xl border border-slate-100 bg-white p-4">
-                    <Link
-                      href={`/opportunities/${opp.id}`}
-                      className="font-semibold text-brand-700 hover:text-brand-900 hover:underline"
-                    >
+                    <Link href={`/opportunities/${opp.id}`} className="font-semibold text-brand-700 hover:text-brand-900 hover:underline">
                       {opp.title}
                     </Link>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
                       <Badge tone="slate">{opp.stage.name}</Badge>
                       {opp.company && (
                         <>
-                          <span className="text-slate-400">Â·</span>
+                          <span className="text-slate-400">&middot;</span>
                           <Link href={`/companies/${opp.company.id}`} className="hover:text-brand-700">
                             {opp.company.name}
                           </Link>
@@ -245,7 +287,7 @@ export default async function DashboardPage() {
                       )}
                       {closeDate && (
                         <>
-                          <span className="text-slate-400">Â·</span>
+                          <span className="text-slate-400">&middot;</span>
                           <span>Chiusura {closeDate}</span>
                         </>
                       )}
@@ -254,12 +296,10 @@ export default async function DashboardPage() {
                       <span>
                         Valore{" "}
                         <span className="font-semibold text-slate-700">
-                          {new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(
-                            Number(opp.value),
-                          )}
+                          {new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(Number(opp.value))}
                         </span>
                       </span>
-                      <span className="text-slate-400">Â·</span>
+                      <span className="text-slate-400">&middot;</span>
                       <span>{opp.probability}% prob.</span>
                     </div>
                   </div>
@@ -268,6 +308,7 @@ export default async function DashboardPage() {
             </div>
           )}
         </Card>
+
         {/* Lead NEW assegnati a me */}
         <Card>
           <SectionHeader
@@ -288,10 +329,7 @@ export default async function DashboardPage() {
                 return (
                   <div key={lead.id} className="rounded-2xl border border-slate-100 bg-white p-4">
                     <div className="flex items-start justify-between gap-3">
-                      <Link
-                        href={`/leads/${lead.id}`}
-                        className="font-semibold text-brand-700 hover:text-brand-900 hover:underline"
-                      >
+                      <Link href={`/leads/${lead.id}`} className="font-semibold text-brand-700 hover:text-brand-900 hover:underline">
                         {lead.title}
                       </Link>
                       <Badge tone="slate">Score {lead.score}</Badge>
@@ -300,17 +338,15 @@ export default async function DashboardPage() {
                       {context && <span>{context}</span>}
                       {lead.source && (
                         <>
-                          {context && <span className="text-slate-400">Â·</span>}
+                          {context && <span className="text-slate-400">&middot;</span>}
                           <span>{lead.source}</span>
                         </>
                       )}
                       {lead.estimatedValue && (
                         <>
-                          <span className="text-slate-400">Â·</span>
+                          <span className="text-slate-400">&middot;</span>
                           <span>
-                            {new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(
-                              Number(lead.estimatedValue),
-                            )}
+                            {new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(Number(lead.estimatedValue))}
                           </span>
                         </>
                       )}

@@ -1,5 +1,6 @@
 "use server";
 
+import { ActivityType, TaskPriority, TaskStatus } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -9,6 +10,84 @@ import { writeAuditLog } from "@/lib/audit";
 import { getLeadDeleteState } from "@/lib/crm-delete";
 import { prisma } from "@/lib/prisma";
 import { leadSchema } from "@/lib/validators";
+
+const ESITO_LABELS: Record<string, string> = {
+  risposto: "Chiamata — Risposto",
+  non_risposto: "Chiamata — Non risposto",
+  da_richiamare: "Chiamata — Da richiamare",
+};
+
+export async function quickCallOnLead(formData: FormData) {
+  const user = await requireUser("activity:write");
+  const leadId = String(formData.get("leadId") ?? "");
+  const esito = String(formData.get("esito") ?? "risposto");
+  const nota = String(formData.get("nota") ?? "").trim();
+  const prossimaAzione = String(formData.get("prossima_azione") ?? "").trim();
+  const prossimaData = String(formData.get("prossima_data") ?? "").trim();
+
+  const lead = await prisma.lead.findFirst({ where: { id: leadId, tenantId: user.tenantId }, select: { id: true, companyId: true, contactId: true } });
+  if (!lead) redirect(`/leads?error=not-found`);
+
+  const subject = ESITO_LABELS[esito] ?? "Chiamata";
+  const body = nota || null;
+
+  await prisma.$transaction(async (tx) => {
+    const activity = await tx.activity.create({
+      data: {
+        tenantId: user.tenantId,
+        userId: user.id,
+        type: ActivityType.CALL,
+        subject,
+        body,
+        occurredAt: new Date(),
+        leadId: lead.id,
+        companyId: lead.companyId,
+        contactId: lead.contactId,
+      },
+    });
+    await tx.auditLog.create({
+      data: {
+        tenantId: user.tenantId,
+        userId: user.id,
+        action: "CREATE",
+        entityType: "Activity",
+        entityId: activity.id,
+        after: JSON.parse(JSON.stringify(activity)),
+      },
+    });
+
+    if (prossimaAzione) {
+      const dueAt = prossimaData ? new Date(prossimaData) : null;
+      const task = await tx.task.create({
+        data: {
+          tenantId: user.tenantId,
+          ownerId: user.id,
+          title: prossimaAzione,
+          status: TaskStatus.TODO,
+          priority: TaskPriority.MEDIUM,
+          dueAt,
+          leadId: lead.id,
+          companyId: lead.companyId,
+          contactId: lead.contactId,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          tenantId: user.tenantId,
+          userId: user.id,
+          action: "CREATE",
+          entityType: "Task",
+          entityId: task.id,
+          after: JSON.parse(JSON.stringify(task)),
+        },
+      });
+    }
+  });
+
+  revalidatePath(`/leads/${leadId}`);
+  revalidatePath("/dashboard");
+  redirect(`/leads/${leadId}?logged=1`);
+}
 
 type LeadInput = z.infer<typeof leadSchema>;
 
