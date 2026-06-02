@@ -1054,7 +1054,11 @@ export async function executeImportJob(prismaClient: typeof prisma, tenantId: st
     }
 
     const values = row.rawData as Record<string, string>;
-    const { normalized: freshNormalized, errors, existingId } = buildNormalizedRow(entity, values, fieldMapping.mapping, ctx, seen, existingMaps);
+    // Use a throwaway Set for buildNormalizedRow: dedupeState inside mapXxxRow
+    // would otherwise add the dedupeKey to `seen`, causing createOrSkipState
+    // below to immediately detect every row as a duplicate of itself.
+    // Within-execute deduplication is handled exclusively by createOrSkipState.
+    const { normalized: freshNormalized, errors, existingId } = buildNormalizedRow(entity, values, fieldMapping.mapping, ctx, new Set<string>(), existingMaps);
     if (errors.length > 0 || (freshNormalized.meta as Record<string, unknown>).state === "invalid") {
       skipped += 1;
       skippedRows.push({ rowNumber: row.rowNumber, reason: "invalid" });
