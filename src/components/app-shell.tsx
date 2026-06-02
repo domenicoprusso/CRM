@@ -48,7 +48,7 @@ export function AppShell({ children, user }: { children: React.ReactNode; user: 
       <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-slate-200 bg-white/90 p-6 backdrop-blur lg:block">
         <div className="mb-10">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo_bitcall.png" alt="BitCall" className="h-12 w-auto object-contain" />
+          <img src="/logo_bitcall.png" alt="BitCall" className="h-20 w-auto object-contain" />
           <p className="mt-3 text-sm text-slate-500">Workspace scalabile per vendite, supporto e customer success.</p>
         </div>
         <nav className="space-y-1">
