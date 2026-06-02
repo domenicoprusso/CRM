@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { AlertCircle, Bell, Clock, Sparkles, TrendingUp } from "lucide-react";
 import { Badge, ButtonLink, Card, EmptyState, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -80,7 +80,7 @@ function TaskRow({ task, dateLabel }: { task: MyDayTaskItem; dateLabel: string |
         </Link>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
           {dateLabel && <span>{dateLabel}</span>}
-          {context && <span className="text-slate-400">&middot;</span>}
+          {context && <span className="text-slate-400">|</span>}
           {context && <span>{context}</span>}
         </div>
       </div>
@@ -150,7 +150,7 @@ export default async function DashboardPage() {
     <>
       <PageHeader
         title="My Day"
-        description={`${snapshot.today} — Ciao ${user.name.split(" ")[0]}, ecco la tua giornata.`}
+        description={`${snapshot.today} - Ciao ${user.name.split(" ")[0]}, ecco la tua giornata.`}
         action={<ButtonLink href="/reports">Report manageriale</ButtonLink>}
       />
 
@@ -279,7 +279,7 @@ export default async function DashboardPage() {
                       <Badge tone="slate">{opp.stage.name}</Badge>
                       {opp.company && (
                         <>
-                          <span className="text-slate-400">&middot;</span>
+                          <span className="text-slate-400">|</span>
                           <Link href={`/companies/${opp.company.id}`} className="hover:text-brand-700">
                             {opp.company.name}
                           </Link>
@@ -287,7 +287,7 @@ export default async function DashboardPage() {
                       )}
                       {closeDate && (
                         <>
-                          <span className="text-slate-400">&middot;</span>
+                          <span className="text-slate-400">|</span>
                           <span>Chiusura {closeDate}</span>
                         </>
                       )}
@@ -299,7 +299,7 @@ export default async function DashboardPage() {
                           {new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(Number(opp.value))}
                         </span>
                       </span>
-                      <span className="text-slate-400">&middot;</span>
+                      <span className="text-slate-400">|</span>
                       <span>{opp.probability}% prob.</span>
                     </div>
                   </div>
@@ -338,13 +338,13 @@ export default async function DashboardPage() {
                       {context && <span>{context}</span>}
                       {lead.source && (
                         <>
-                          {context && <span className="text-slate-400">&middot;</span>}
+                          {context && <span className="text-slate-400">|</span>}
                           <span>{lead.source}</span>
                         </>
                       )}
                       {lead.estimatedValue && (
                         <>
-                          <span className="text-slate-400">&middot;</span>
+                          <span className="text-slate-400">|</span>
                           <span>
                             {new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(Number(lead.estimatedValue))}
                           </span>

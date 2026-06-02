@@ -15,10 +15,10 @@ function nextDay(date: Date) {
 }
 
 function formatDay(date: Date) {
+  // Use numeric-only format to avoid encoding issues with Italian accented weekday/month names
   return new Intl.DateTimeFormat("it-IT", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
+    day: "2-digit",
+    month: "2-digit",
     year: "numeric",
   }).format(date);
 }
