@@ -2,8 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteCompany, updateCompany } from "../actions";
 import { Badge, ButtonLink, Card, DangerButton, EmptyState, FieldValue, Notice, PageHeader, SubmitButton } from "@/components/ui";
-import { ActivityTimeline, TaskList } from "@/components/productivity";
+import { ActivityTimeline, TaskList, UnifiedTimeline } from "@/components/productivity";
 import { requireUser } from "@/lib/auth";
+import { getCompanyTimeline } from "@/lib/timeline";
 import { readParam, type SearchParamsInput } from "@/lib/crm-filters";
 import { prisma } from "@/lib/prisma";
 
@@ -25,17 +26,20 @@ export default async function CompanyDetailPage({ params, searchParams }: PagePr
   const { id } = await params;
   const query = await searchParams;
   const notice = detailNotice(query);
-  const company = await prisma.company.findFirst({
-    where: { id, tenantId: user.tenantId },
-    include: {
-      owner: true,
-      contacts: { orderBy: { updatedAt: "desc" }, take: 10 },
-      leads: { orderBy: { updatedAt: "desc" }, take: 10 },
-      activities: { orderBy: { occurredAt: "desc" }, take: 10, include: { user: true, company: true, contact: true, lead: true, opportunity: true } },
-      tasks: { where: { status: { notIn: ["DONE", "CANCELLED"] } }, orderBy: [{ dueAt: "asc" }, { updatedAt: "desc" }], take: 10, include: { owner: true, company: true, contact: true, lead: true, opportunity: true } },
-      _count: { select: { contacts: true, leads: true, opportunities: true, activities: true, tasks: true, documents: true } },
-    },
-  });
+  const [company, timeline] = await Promise.all([
+    prisma.company.findFirst({
+      where: { id, tenantId: user.tenantId },
+      include: {
+        owner: true,
+        contacts: { orderBy: { updatedAt: "desc" }, take: 10 },
+        leads: { orderBy: { updatedAt: "desc" }, take: 10 },
+        activities: { orderBy: { occurredAt: "desc" }, take: 10, include: { user: true, company: true, contact: true, lead: true, opportunity: true } },
+        tasks: { where: { status: { notIn: ["DONE", "CANCELLED"] } }, orderBy: [{ dueAt: "asc" }, { updatedAt: "desc" }], take: 10, include: { owner: true, company: true, contact: true, lead: true, opportunity: true } },
+        _count: { select: { contacts: true, leads: true, opportunities: true, activities: true, tasks: true, documents: true } },
+      },
+    }),
+    getCompanyTimeline(prisma, user.tenantId, id),
+  ]);
 
   if (!company) notFound();
 
@@ -104,6 +108,14 @@ export default async function CompanyDetailPage({ params, searchParams }: PagePr
             <h3 className="text-lg font-semibold text-slate-950">Follow-up aperti</h3>
             <div className="mt-4">
               <TaskList tasks={company.tasks} />
+            </div>
+          </Card>
+
+          <Card>
+            <h3 className="text-lg font-semibold text-slate-950">Timeline CRM</h3>
+            <p className="mt-1 text-sm text-slate-500">Storico cronologico di tutte le interazioni e modifiche.</p>
+            <div className="mt-5">
+              <UnifiedTimeline events={timeline} />
             </div>
           </Card>
         </div>

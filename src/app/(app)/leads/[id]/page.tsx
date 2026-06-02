@@ -5,7 +5,8 @@ import { notFound } from "next/navigation";
 import { deleteLead, quickCallOnLead, updateLead } from "../actions";
 import { convertLeadToOpportunity } from "../../opportunities/actions";
 import { Badge, ButtonLink, Card, DangerButton, FieldValue, Notice, PageHeader, SubmitButton } from "@/components/ui";
-import { ActivityTimeline, TaskList } from "@/components/productivity";
+import { ActivityTimeline, TaskList, UnifiedTimeline } from "@/components/productivity";
+import { getLeadTimeline } from "@/lib/timeline";
 import { requireUser } from "@/lib/auth";
 import { readParam, type SearchParamsInput } from "@/lib/crm-filters";
 import { ensureDefaultPipelineStages } from "@/lib/pipeline";
@@ -38,7 +39,7 @@ export default async function LeadDetailPage({ params, searchParams }: PageProps
   const query = await searchParams;
   const notice = detailNotice(query);
   const stages = await ensureDefaultPipelineStages(user.tenantId);
-  const [lead, companies, contacts] = await Promise.all([
+  const [lead, companies, contacts, timeline] = await Promise.all([
     prisma.lead.findFirst({
       where: { id, tenantId: user.tenantId },
       include: {
@@ -53,6 +54,7 @@ export default async function LeadDetailPage({ params, searchParams }: PageProps
     }),
     prisma.company.findMany({ where: { tenantId: user.tenantId }, orderBy: { name: "asc" } }),
     prisma.contact.findMany({ where: { tenantId: user.tenantId }, orderBy: { lastName: "asc" } }),
+    getLeadTimeline(prisma, user.tenantId, id),
   ]);
 
   if (!lead) notFound();
@@ -184,6 +186,14 @@ export default async function LeadDetailPage({ params, searchParams }: PageProps
             <h3 className="text-lg font-semibold text-slate-950">Follow-up aperti</h3>
             <div className="mt-4">
               <TaskList tasks={lead.tasks} />
+            </div>
+          </Card>
+
+          <Card>
+            <h3 className="text-lg font-semibold text-slate-950">Timeline CRM</h3>
+            <p className="mt-1 text-sm text-slate-500">Storico cronologico di tutte le interazioni e modifiche.</p>
+            <div className="mt-5">
+              <UnifiedTimeline events={timeline} />
             </div>
           </Card>
 

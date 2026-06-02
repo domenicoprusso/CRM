@@ -3,7 +3,8 @@ import { Phone } from "lucide-react";
 import { notFound } from "next/navigation";
 import { deleteOpportunity, quickCallOnOpportunity, setOpportunityOutcome, updateOpportunity } from "../actions";
 import { Badge, ButtonLink, Card, DangerButton, FieldValue, Notice, PageHeader, SubmitButton } from "@/components/ui";
-import { ActivityTimeline, NextActionPanel, TaskList } from "@/components/productivity";
+import { ActivityTimeline, NextActionPanel, TaskList, UnifiedTimeline } from "@/components/productivity";
+import { getOpportunityTimeline } from "@/lib/timeline";
 import { requireUser } from "@/lib/auth";
 import { readParam, type SearchParamsInput } from "@/lib/crm-filters";
 import { ensureDefaultPipelineStages } from "@/lib/pipeline";
@@ -43,7 +44,7 @@ export default async function OpportunityDetailPage({ params, searchParams }: Pa
   const query = await searchParams;
   const notice = detailNotice(query);
   const stages = await ensureDefaultPipelineStages(user.tenantId);
-  const [opportunity, companies, contacts] = await Promise.all([
+  const [opportunity, companies, contacts, timeline] = await Promise.all([
     prisma.opportunity.findFirst({
       where: { id, tenantId: user.tenantId },
       include: {
@@ -59,6 +60,7 @@ export default async function OpportunityDetailPage({ params, searchParams }: Pa
     }),
     prisma.company.findMany({ where: { tenantId: user.tenantId }, orderBy: { name: "asc" } }),
     prisma.contact.findMany({ where: { tenantId: user.tenantId }, orderBy: { lastName: "asc" } }),
+    getOpportunityTimeline(prisma, user.tenantId, id),
   ]);
 
   if (!opportunity) notFound();
@@ -108,6 +110,14 @@ export default async function OpportunityDetailPage({ params, searchParams }: Pa
             <h3 className="text-lg font-semibold text-slate-950">Follow-up aperti</h3>
             <div className="mt-4">
               <TaskList tasks={opportunity.tasks} />
+            </div>
+          </Card>
+
+          <Card>
+            <h3 className="text-lg font-semibold text-slate-950">Timeline CRM</h3>
+            <p className="mt-1 text-sm text-slate-500">Storico cronologico di tutte le interazioni e modifiche.</p>
+            <div className="mt-5">
+              <UnifiedTimeline events={timeline} />
             </div>
           </Card>
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ActivityType, TaskPriority, TaskStatus, type Activity, type Task } from "@prisma/client";
+import type { TimelineEvent } from "@/lib/timeline";
 import { CalendarCheck2, ClipboardList, ListTodo, MessageSquareMore, SquareCheckBig } from "lucide-react";
 import { Badge, ButtonLink, EmptyState } from "@/components/ui";
 
@@ -151,4 +152,84 @@ export function TaskList({ tasks }: { tasks: Array<Task & { owner: { name: strin
 
 export function ProductivitySectionLink({ href, label }: { href: string; label: string }) {
   return <ButtonLink href={href}>{label}</ButtonLink>;
+}
+
+// ─── Unified CRM Timeline ────────────────────────────────────────────────────
+
+const timelineDateFormatter = new Intl.DateTimeFormat("it-IT", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+const TONE_CLASSES = {
+  brand: "bg-brand-50 text-brand-700",
+  red:   "bg-red-50 text-red-700",
+  amber: "bg-amber-50 text-amber-800",
+  slate: "bg-slate-100 text-slate-700",
+} as const;
+
+const DOT_CLASSES = {
+  brand: "bg-brand-500",
+  red:   "bg-red-500",
+  amber: "bg-amber-500",
+  slate: "bg-slate-400",
+} as const;
+
+export function UnifiedTimeline({ events }: { events: TimelineEvent[] }) {
+  if (events.length === 0) {
+    return (
+      <EmptyState message="Nessun evento registrato per questo record." />
+    );
+  }
+
+  return (
+    <div className="relative space-y-0">
+      {/* Vertical line */}
+      <div className="absolute left-[11px] top-0 bottom-0 w-px bg-slate-200" aria-hidden />
+
+      {events.map((event, index) => (
+        <div key={event.id} className={`relative flex gap-4 pb-5 ${index === events.length - 1 ? "pb-0" : ""}`}>
+          {/* Dot */}
+          <div className="relative mt-1 flex h-6 w-6 shrink-0 items-center justify-center">
+            <span className={`h-2.5 w-2.5 rounded-full ring-2 ring-white ${DOT_CLASSES[event.badge.tone]}`} />
+          </div>
+
+          {/* Content */}
+          <div className="min-w-0 flex-1 pb-1">
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              {/* Badge */}
+              <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${TONE_CLASSES[event.badge.tone]}`}>
+                {event.badge.label}
+              </span>
+              {/* Timestamp */}
+              <span className="text-xs text-slate-400">
+                {timelineDateFormatter.format(event.at)}
+              </span>
+              {/* Actor */}
+              <span className="text-xs font-medium text-slate-600">{event.actor}</span>
+            </div>
+
+            {/* Title */}
+            <div className="mt-1">
+              {event.href ? (
+                <Link href={event.href} className="text-sm font-semibold text-brand-700 hover:text-brand-900 hover:underline">
+                  {event.title}
+                </Link>
+              ) : (
+                <p className="text-sm font-semibold text-slate-900">{event.title}</p>
+              )}
+            </div>
+
+            {/* Subtitle */}
+            {event.subtitle && (
+              <p className="mt-0.5 text-xs text-slate-500 line-clamp-2">{event.subtitle}</p>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
