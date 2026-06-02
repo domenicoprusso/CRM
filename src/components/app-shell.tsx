@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BadgeDollarSign, BarChart3, Building2, KanbanSquare, ListTodo, LogOut, Sun, Target, Upload, UsersRound } from "lucide-react";
@@ -48,16 +47,8 @@ export function AppShell({ children, user }: { children: React.ReactNode; user: 
     <div className="min-h-screen bg-slate-50">
       <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-slate-200 bg-white/90 p-6 backdrop-blur lg:block">
         <div className="mb-10">
-          <div className="rounded-xl bg-[#0f3d4c] px-4 py-2">
-            <Image
-              src="/logo_bitcall.png"
-              alt="BitCall"
-              width={160}
-              height={44}
-              className="h-11 w-auto object-contain"
-              priority
-            />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo_bitcall.png" alt="BitCall" className="h-12 w-auto object-contain" />
           <p className="mt-3 text-sm text-slate-500">Workspace scalabile per vendite, supporto e customer success.</p>
         </div>
         <nav className="space-y-1">
