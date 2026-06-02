@@ -73,14 +73,14 @@ type MyDayTaskItem = {
 function TaskRow({ task, dateLabel }: { task: MyDayTaskItem; dateLabel: string | null }) {
   const context = taskContextLabel(task);
   return (
-    <div className="flex items-start justify-between gap-4 rounded-2xl border border-slate-100 bg-white p-4">
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3">
       <div className="min-w-0 flex-1">
-        <Link href={`/tasks/${task.id}`} className="font-semibold text-brand-700 hover:text-brand-900 hover:underline">
+        <Link href={`/tasks/${task.id}`} className="text-sm font-semibold text-brand-700 hover:text-brand-900 hover:underline">
           {task.title}
         </Link>
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+        <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-400">
           {dateLabel && <span>{dateLabel}</span>}
-          {context && <span className="text-slate-400">|</span>}
+          {context && <span>·</span>}
           {context && <span>{context}</span>}
         </div>
       </div>
@@ -156,18 +156,18 @@ export default async function DashboardPage() {
 
       {/* Smart alert banner */}
       {alertMessage ? (
-        <div className="mb-6 flex items-start gap-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
-          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold text-amber-900">{alertMessage}</p>
-            <div className="mt-2 flex flex-wrap gap-3">
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5">
+          <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
+          <div className="min-w-0 flex-1 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <p className="text-sm font-semibold text-amber-900">{alertMessage}</p>
+            <div className="flex flex-wrap gap-3">
               {snapshot.overdueTotal > 0 && (
-                <a href="#overdue" className="text-sm font-medium text-amber-700 underline hover:text-amber-900">
+                <a href="#overdue" className="text-xs font-medium text-amber-700 underline hover:text-amber-900">
                   Vai ai task scaduti
                 </a>
               )}
               {snapshot.staleOpportunitiesTotal > 0 && (
-                <Link href="/opportunities?owner=me" className="text-sm font-medium text-amber-700 underline hover:text-amber-900">
+                <Link href="/opportunities?owner=me" className="text-xs font-medium text-amber-700 underline hover:text-amber-900">
                   Vedi opportunita ferme
                 </Link>
               )}
@@ -190,7 +190,7 @@ export default async function DashboardPage() {
       ) : null}
 
       {/* Task scaduti */}
-      <Card className="mb-6">
+      <Card className="mb-6 border-l-4 border-l-red-500 bg-red-50/30">
         <SectionHeader
           icon={AlertCircle}
           title="Task scaduti"
@@ -211,7 +211,7 @@ export default async function DashboardPage() {
       </Card>
 
       {/* Task in scadenza oggi */}
-      <Card className="mb-6">
+      <Card className="mb-6 border-l-4 border-l-amber-400">
         <SectionHeader
           icon={Clock}
           title="Task in scadenza oggi"
@@ -231,7 +231,7 @@ export default async function DashboardPage() {
       </Card>
 
       {/* Follow-up di oggi */}
-      <Card className="mb-6">
+      <Card className="mb-6 border-l-4 border-l-brand-600 bg-brand-50/20">
         <SectionHeader
           icon={Bell}
           title="Follow-up di oggi"
