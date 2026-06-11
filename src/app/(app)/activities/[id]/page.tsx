@@ -19,10 +19,6 @@ function detailNotice(params: SearchParamsInput) {
   if (readParam(params, "error") === "confirm") return { tone: "error" as const, message: "Per eliminare devi scrivere ELIMINA nel campo di conferma." };
   if (readParam(params, "error") === "not-found") return { tone: "error" as const, message: "Attivita non trovata." };
   if (readParam(params, "error") === "delete-failed") return { tone: "error" as const, message: "Eliminazione non riuscita." };
-  if (readParam(params, "error") === "invalid-company") return { tone: "error" as const, message: "Azienda non valida per questo workspace." };
-  if (readParam(params, "error") === "invalid-contact") return { tone: "error" as const, message: "Contatto non valido per questo workspace." };
-  if (readParam(params, "error") === "invalid-lead") return { tone: "error" as const, message: "Lead non valido per questo workspace." };
-  if (readParam(params, "error") === "invalid-opportunity") return { tone: "error" as const, message: "Opportunita non valida per questo workspace." };
   return { tone: "slate" as const, message: undefined };
 }
 
@@ -35,16 +31,11 @@ export default async function ActivityDetailPage({ params, searchParams }: PageP
   const { id } = await params;
   const query = await searchParams;
   const notice = detailNotice(query);
-  const [activity, companies, contacts, leads, opportunities] = await Promise.all([
-    prisma.activity.findFirst({
-      where: { id, tenantId: user.tenantId },
-      include: { user: true, company: true, contact: true, lead: true, opportunity: true },
-    }),
-    prisma.company.findMany({ where: { tenantId: user.tenantId }, orderBy: { name: "asc" } }),
-    prisma.contact.findMany({ where: { tenantId: user.tenantId }, orderBy: { lastName: "asc" } }),
-    prisma.lead.findMany({ where: { tenantId: user.tenantId }, orderBy: { title: "asc" } }),
-    prisma.opportunity.findMany({ where: { tenantId: user.tenantId }, orderBy: { title: "asc" } }),
-  ]);
+
+  const activity = await prisma.activity.findFirst({
+    where: { id, tenantId: user.tenantId },
+    include: { user: true, company: true, contact: true, lead: true, opportunity: true },
+  });
 
   if (!activity) notFound();
 
@@ -59,14 +50,34 @@ export default async function ActivityDetailPage({ params, searchParams }: PageP
       <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
         <div className="space-y-6">
           <Card>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
               <FieldValue label="Autore" value={activity.user.name} />
               <FieldValue label="Tipo" value={<ActivityTypeBadge type={activity.type} />} />
-              <FieldValue label="Data" value={activity.occurredAt.toISOString()} />
-              <FieldValue label="Azienda" value={activity.company ? <Link href={`/companies/${activity.company.id}`} className="text-brand-700 hover:text-brand-900">{activity.company.name}</Link> : "N/D"} />
-              <FieldValue label="Contatto" value={activity.contact ? <Link href={`/contacts/${activity.contact.id}`} className="text-brand-700 hover:text-brand-900">{activity.contact.firstName} {activity.contact.lastName}</Link> : "N/D"} />
-              <FieldValue label="Lead" value={activity.lead ? <Link href={`/leads/${activity.lead.id}`} className="text-brand-700 hover:text-brand-900">{activity.lead.title}</Link> : "N/D"} />
-              <FieldValue label="Opportunita" value={activity.opportunity ? <Link href={`/opportunities/${activity.opportunity.id}`} className="text-brand-700 hover:text-brand-900">{activity.opportunity.title}</Link> : "N/D"} />
+              <FieldValue label="Data" value={activity.occurredAt.toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })} />
+              <FieldValue
+                label="Azienda"
+                value={activity.company
+                  ? <Link href={`/companies/${activity.company.id}`} className="text-brand-700 hover:text-brand-900">{activity.company.name}</Link>
+                  : "N/D"}
+              />
+              <FieldValue
+                label="Contatto"
+                value={activity.contact
+                  ? <Link href={`/contacts/${activity.contact.id}`} className="text-brand-700 hover:text-brand-900">{activity.contact.firstName} {activity.contact.lastName}</Link>
+                  : "N/D"}
+              />
+              <FieldValue
+                label="Lead"
+                value={activity.lead
+                  ? <Link href={`/leads/${activity.lead.id}`} className="text-brand-700 hover:text-brand-900">{activity.lead.title}</Link>
+                  : "N/D"}
+              />
+              <FieldValue
+                label="Opportunita"
+                value={activity.opportunity
+                  ? <Link href={`/opportunities/${activity.opportunity.id}`} className="text-brand-700 hover:text-brand-900">{activity.opportunity.title}</Link>
+                  : "N/D"}
+              />
             </div>
             {activity.body ? <p className="mt-5 whitespace-pre-wrap text-sm text-slate-600">{activity.body}</p> : null}
           </Card>
@@ -77,48 +88,26 @@ export default async function ActivityDetailPage({ params, searchParams }: PageP
             <h3 className="text-lg font-semibold">Modifica attivita</h3>
             <form action={updateActivity} className="mt-4 grid gap-3">
               <input type="hidden" name="id" value={activity.id} />
-              <select name="type" defaultValue={activity.type}>
-                {Object.values(ActivityType).map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-              <input name="subject" defaultValue={activity.subject} placeholder="Soggetto attivita" required />
-              <textarea name="body" defaultValue={activity.body ?? ""} placeholder="Descrizione" rows={3} />
-              <input name="occurredAt" type="datetime-local" defaultValue={datetimeValue(activity.occurredAt)} />
-              <select name="companyId" defaultValue={activity.companyId ?? ""}>
-                <option value="">Nessuna azienda</option>
-                {companies.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.name}
-                  </option>
-                ))}
-              </select>
-              <select name="contactId" defaultValue={activity.contactId ?? ""}>
-                <option value="">Nessun contatto</option>
-                {contacts.map((contact) => (
-                  <option key={contact.id} value={contact.id}>
-                    {contact.firstName} {contact.lastName}
-                  </option>
-                ))}
-              </select>
-              <select name="leadId" defaultValue={activity.leadId ?? ""}>
-                <option value="">Nessun lead</option>
-                {leads.map((lead) => (
-                  <option key={lead.id} value={lead.id}>
-                    {lead.title}
-                  </option>
-                ))}
-              </select>
-              <select name="opportunityId" defaultValue={activity.opportunityId ?? ""}>
-                <option value="">Nessuna opportunita</option>
-                {opportunities.map((opportunity) => (
-                  <option key={opportunity.id} value={opportunity.id}>
-                    {opportunity.title}
-                  </option>
-                ))}
-              </select>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Tipo
+                <select name="type" defaultValue={activity.type}>
+                  {Object.values(ActivityType).map((type) => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Soggetto
+                <input name="subject" defaultValue={activity.subject} placeholder="Soggetto attivita" required />
+              </label>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Note
+                <textarea name="body" defaultValue={activity.body ?? ""} placeholder="Descrizione" rows={4} />
+              </label>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Data e ora
+                <input name="occurredAt" type="datetime-local" defaultValue={datetimeValue(activity.occurredAt)} />
+              </label>
               <SubmitButton label="Salva modifiche" />
             </form>
           </Card>

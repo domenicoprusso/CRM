@@ -46,7 +46,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
     <>
       <PageHeader title="Aziende" description="Gestisci account, informazioni commerciali, tag e collegamenti con contatti e lead." />
       <Notice tone={notice.tone} message={notice.message} />
-      <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
+      <div className="grid gap-6 xl:grid-cols-[380px_1fr]">
         <Card>
           <h3 className="text-lg font-semibold">Nuova azienda</h3>
           <form action={createCompany} className="mt-4 grid gap-3">
@@ -55,12 +55,12 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
             <input name="website" placeholder="https://azienda.it" />
             <input name="email" type="email" placeholder="info@azienda.it" />
             <input name="phone" placeholder="Telefono" />
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-3 grid-cols-2">
               <input name="city" placeholder="Citta" />
               <input name="province" placeholder="Provincia" />
               <input name="region" placeholder="Regione" />
               <input name="postalCode" placeholder="CAP" />
-              <input name="country" placeholder="Paese" />
+              <input name="country" placeholder="Paese" className="col-span-2" />
             </div>
             <input name="tags" placeholder="Tag separati da virgola" list="tag-suggestions" />
             <datalist id="tag-suggestions">
@@ -72,7 +72,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
         </Card>
         <div className="space-y-6">
           <Card>
-            <form className="grid gap-3 lg:grid-cols-[1fr_160px_160px_160px_160px_160px_160px_160px_auto_auto] lg:items-end">
+            <form className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 items-end">
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Cerca
                 <input name="q" defaultValue={filters.q ?? ""} placeholder="Nome, email, citta..." />
@@ -117,8 +117,10 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
                   ))}
                 </select>
               </label>
-              <SubmitButton label="Filtra" />
-              <ButtonLink href="/companies">Reset</ButtonLink>
+              <div className="flex gap-2 col-span-2 sm:col-span-1">
+                <SubmitButton label="Filtra" className="flex-1" />
+                <ButtonLink href="/companies">Reset</ButtonLink>
+              </div>
             </form>
           </Card>
           <Card className="overflow-hidden p-0">

@@ -12,19 +12,13 @@ import { prisma } from "@/lib/prisma";
 const LEAD_SORT_FIELDS = ["updatedAt", "title", "createdAt", "score"] as const;
 
 const LEAD_STATUS_LABELS: Record<string, string> = {
-  NEW: "Nuovo",
-  CONTACTED: "Contattato",
-  QUALIFIED: "Qualificato",
-  NURTURING: "In coltivazione",
-  CONVERTED: "Convertito",
-  LOST: "Perso",
+  NEW: "Nuovo", CONTACTED: "Contattato", QUALIFIED: "Qualificato",
+  NURTURING: "In coltivazione", CONVERTED: "Convertito", LOST: "Perso",
 };
 
 function listNotice(params: SearchParamsInput) {
   if (readParam(params, "deleted") === "1") return { tone: "success" as const, message: "Lead eliminato." };
   if (readParam(params, "error") === "not-found") return { tone: "error" as const, message: "Lead non trovato." };
-  if (readParam(params, "error") === "invalid-company") return { tone: "error" as const, message: "Azienda non valida per questo workspace." };
-  if (readParam(params, "error") === "invalid-contact") return { tone: "error" as const, message: "Contatto non valido per questo workspace." };
   return { tone: "slate" as const, message: undefined };
 }
 
@@ -38,11 +32,9 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const { skip, take } = buildSkipTake(page, pageSize);
   const where = buildLeadWhere(params, user);
 
-  const [leads, total, companies, contacts, teamUsers, tagSuggestions, projectSuggestions] = await Promise.all([
-    prisma.lead.findMany({ where, orderBy: { [sortField]: sortDir }, skip, take, include: { company: true, contact: true, owner: true } }),
+  const [leads, total, teamUsers, tagSuggestions, projectSuggestions] = await Promise.all([
+    prisma.lead.findMany({ where, orderBy: { [sortField]: sortDir }, skip, take, include: { company: true, owner: true } }),
     prisma.lead.count({ where }),
-    prisma.company.findMany({ where: { tenantId: user.tenantId }, orderBy: { name: "asc" } }),
-    prisma.contact.findMany({ where: { tenantId: user.tenantId }, orderBy: { lastName: "asc" } }),
     getTeamUsers(prisma, user.tenantId),
     getTagSuggestions(prisma, user.tenantId),
     getProjectSuggestions(prisma, user.tenantId),
@@ -53,45 +45,59 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     <>
       <PageHeader title="Lead" description="Qualifica opportunita iniziali, assegna score, valore stimato e prossima data di chiusura." />
       <Notice tone={notice.tone} message={notice.message} />
-      <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
+      <div className="grid gap-6 xl:grid-cols-[380px_1fr]">
         <Card>
           <h3 className="text-lg font-semibold">Nuovo lead</h3>
+          <p className="mt-1 text-sm text-slate-500">Per collegare a un&apos;azienda crea il lead dalla scheda azienda.</p>
           <form action={createLead} className="mt-4 grid gap-3">
-            <input name="title" placeholder="Titolo lead" required />
-            <input name="source" placeholder="Fonte (LinkedIn, referral, evento...)" />
-            <select name="status" defaultValue={LeadStatus.NEW}>
-              {Object.values(LeadStatus).map((status) => (
-                <option key={status} value={status}>{LEAD_STATUS_LABELS[status] ?? status}</option>
-              ))}
-            </select>
-            <div className="grid gap-3 md:grid-cols-2">
-              <input name="score" type="number" min="0" max="100" placeholder="Score" />
-              <input name="estimatedValue" type="number" min="0" step="0.01" placeholder="Valore stimato" />
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Titolo
+              <input name="title" placeholder="Titolo lead" required />
+            </label>
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Fonte
+              <input name="source" placeholder="LinkedIn, referral, evento..." />
+            </label>
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Stato
+              <select name="status" defaultValue={LeadStatus.NEW}>
+                {Object.values(LeadStatus).map((s) => (
+                  <option key={s} value={s}>{LEAD_STATUS_LABELS[s] ?? s}</option>
+                ))}
+              </select>
+            </label>
+            <div className="grid gap-3 grid-cols-2">
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Score
+                <input name="score" type="number" min="0" max="100" placeholder="0-100" />
+              </label>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Valore stimato
+                <input name="estimatedValue" type="number" min="0" step="0.01" placeholder="EUR" />
+              </label>
             </div>
-            <input name="expectedCloseDate" type="date" />
-            <select name="companyId" defaultValue="">
-              <option value="">Nessuna azienda</option>
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>{company.name}</option>
-              ))}
-            </select>
-            <select name="contactId" defaultValue="">
-              <option value="">Nessun contatto</option>
-              {contacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>{contact.firstName} {contact.lastName}</option>
-              ))}
-            </select>
-            <input name="tags" placeholder="Tag separati da virgola" list="lead-tag-suggestions" />
-            <datalist id="lead-tag-suggestions">
-              {tagSuggestions.map((t) => <option key={t} value={t} />)}
-            </datalist>
-            <textarea name="notes" placeholder="Note interne" rows={4} />
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Data chiusura prevista
+              <input name="expectedCloseDate" type="date" />
+            </label>
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Tag
+              <input name="tags" placeholder="Tag separati da virgola" list="lead-tag-suggestions" />
+              <datalist id="lead-tag-suggestions">
+                {tagSuggestions.map((t) => <option key={t} value={t} />)}
+              </datalist>
+            </label>
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Note
+              <textarea name="notes" placeholder="Note interne" rows={3} />
+            </label>
             <SubmitButton label="Crea lead" />
           </form>
         </Card>
+
         <div className="space-y-6">
           <Card>
-            <form className="grid gap-3 xl:grid-cols-[1fr_150px_180px_120px_150px_150px_200px_auto_auto] xl:items-end">
+            <form className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 items-end">
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Cerca
                 <input name="q" defaultValue={filters.q ?? ""} placeholder="Titolo, fonte, azienda..." />
@@ -100,34 +106,25 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                 Stato
                 <select name="status" defaultValue={filters.status ?? ""}>
                   <option value="">Tutti</option>
-                  {Object.values(LeadStatus).map((status) => (
-                    <option key={status} value={status}>{LEAD_STATUS_LABELS[status] ?? status}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Azienda
-                <select name="companyId" defaultValue={filters.companyId ?? ""}>
-                  <option value="">Tutte</option>
-                  {companies.map((company) => (
-                    <option key={company.id} value={company.id}>{company.name}</option>
+                  {Object.values(LeadStatus).map((s) => (
+                    <option key={s} value={s}>{LEAD_STATUS_LABELS[s] ?? s}</option>
                   ))}
                 </select>
               </label>
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Score min.
-                <input name="scoreMin" type="number" min="0" max="100" defaultValue={filters.scoreMin ?? ""} />
+                <input name="scoreMin" type="number" min="0" max="100" defaultValue={filters.scoreMin ?? ""} placeholder="0" />
               </label>
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Tag
-                <input name="tag" defaultValue={readParam(params, "tag") ?? ""} placeholder="Scuole" list="lead-filter-tags" />
+                <input name="tag" defaultValue={readParam(params, "tag") ?? ""} placeholder="Tag" list="lead-filter-tags" />
                 <datalist id="lead-filter-tags">
                   {tagSuggestions.map((t) => <option key={t} value={t} />)}
                 </datalist>
               </label>
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Progetto
-                <input name="project" defaultValue={readParam(params, "project") ?? ""} placeholder="Scuole Roma" list="lead-filter-projects" />
+                <input name="project" defaultValue={readParam(params, "project") ?? ""} placeholder="lomblead" list="lead-filter-projects" />
                 <datalist id="lead-filter-projects">
                   {projectSuggestions.map((p) => <option key={p.slug} value={p.slug} />)}
                 </datalist>
@@ -142,14 +139,17 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                   ))}
                 </select>
               </label>
-              <SubmitButton label="Filtra" />
-              <ButtonLink href="/leads">Reset</ButtonLink>
+              <div className="flex gap-2 col-span-2 sm:col-span-1">
+                <SubmitButton label="Filtra" className="flex-1" />
+                <ButtonLink href="/leads">Reset</ButtonLink>
+              </div>
             </form>
           </Card>
+
           <Card className="overflow-hidden p-0">
-            <div className="flex items-center justify-between border-b border-slate-100 p-6">
+            <div className="flex items-center justify-between gap-4 border-b border-slate-100 px-6 py-4">
               <h3 className="text-lg font-semibold">Lead pipeline iniziale</h3>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 <ResultsCount meta={meta} />
                 <PageSizeSelector meta={meta} params={params} />
               </div>
@@ -167,14 +167,12 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                       <th className="px-6 py-3">Stato</th>
                       <th className="px-6 py-3">Score</th>
                       <th className="px-6 py-3">Valore</th>
-                      <th className="px-6 py-3">Tag</th>
                       <th className="px-6 py-3">Progetto</th>
                       <th className="px-6 py-3">Owner</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {leads.map((lead) => {
-                      const freeTags = lead.tags.filter((t) => !t.startsWith("project:")).slice(0, 2);
                       const projectTags = lead.tags.filter((t) => t.startsWith("project:")).slice(0, 2);
                       return (
                         <tr key={lead.id} className="hover:bg-slate-50">
@@ -182,20 +180,13 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                             <Link href={`/leads/${lead.id}`} className="text-brand-700 hover:text-brand-900">
                               {lead.title}
                             </Link>
-                            <p className="font-normal text-slate-500">{lead.company?.name ?? (lead.contact ? `${lead.contact.firstName} ${lead.contact.lastName}` : "N/D")}</p>
+                            <p className="font-normal text-slate-500">{lead.company?.name ?? "N/D"}</p>
                           </td>
                           <td className="px-6 py-4">
                             <Badge>{LEAD_STATUS_LABELS[lead.status] ?? lead.status}</Badge>
                           </td>
                           <td className="px-6 py-4">{lead.score}/100</td>
                           <td className="px-6 py-4">{lead.estimatedValue ? `EUR ${lead.estimatedValue}` : "N/D"}</td>
-                          <td className="px-6 py-4">
-                            <div className="flex flex-wrap gap-1">
-                              {freeTags.length > 0
-                                ? freeTags.map((t) => <Badge key={t} tone="slate">{t}</Badge>)
-                                : <span className="text-slate-400">-</span>}
-                            </div>
-                          </td>
                           <td className="px-6 py-4">
                             <div className="flex flex-wrap gap-1">
                               {projectTags.length > 0

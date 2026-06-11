@@ -61,6 +61,9 @@ export default async function CompanyDetailPage({ params, searchParams }: PagePr
             <div className="grid gap-4 md:grid-cols-4">
               <FieldValue label="Owner" value={company.owner?.name ?? "N/D"} />
               <FieldValue label="Settore" value={company.industry ?? "N/D"} />
+              {company.codMeccanografico && (
+                <FieldValue label="Cod. Meccanografico" value={company.codMeccanografico} />
+              )}
               <FieldValue label="Città" value={company.city ?? "N/D"} />
               <FieldValue label="Provincia" value={company.province ?? "N/D"} />
               <FieldValue label="Regione" value={company.region ?? "N/D"} />
@@ -157,6 +160,7 @@ export default async function CompanyDetailPage({ params, searchParams }: PagePr
               <input type="hidden" name="id" value={company.id} />
               <input name="name" defaultValue={company.name} placeholder="Nome azienda" required />
               <input name="industry" defaultValue={company.industry ?? ""} placeholder="Settore" />
+              <input name="codMeccanografico" defaultValue={company.codMeccanografico ?? ""} placeholder="Codice Meccanografico (es. TOIC83500A)" />
               <input name="website" defaultValue={company.website ?? ""} placeholder="https://azienda.it" />
               <input name="email" type="email" defaultValue={company.email ?? ""} placeholder="info@azienda.it" />
               <input name="phone" defaultValue={company.phone ?? ""} placeholder="Telefono" />

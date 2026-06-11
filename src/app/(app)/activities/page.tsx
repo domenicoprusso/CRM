@@ -13,10 +13,6 @@ function listNotice(params: SearchParamsInput) {
   if (readParam(params, "updated") === "1") return { tone: "success" as const, message: "Attivita aggiornata." };
   if (readParam(params, "error") === "not-found") return { tone: "error" as const, message: "Attivita non trovata." };
   if (readParam(params, "error") === "confirm") return { tone: "error" as const, message: "Per eliminare devi scrivere ELIMINA nel campo di conferma." };
-  if (readParam(params, "error") === "invalid-company") return { tone: "error" as const, message: "Azienda non valida per questo workspace." };
-  if (readParam(params, "error") === "invalid-contact") return { tone: "error" as const, message: "Contatto non valido per questo workspace." };
-  if (readParam(params, "error") === "invalid-lead") return { tone: "error" as const, message: "Lead non valido per questo workspace." };
-  if (readParam(params, "error") === "invalid-opportunity") return { tone: "error" as const, message: "Opportunita non valida per questo workspace." };
   if (readParam(params, "error") === "delete-failed") return { tone: "error" as const, message: "Eliminazione non riuscita." };
   return { tone: "slate" as const, message: undefined };
 }
@@ -26,17 +22,13 @@ export default async function ActivitiesPage({ searchParams }: { searchParams: P
   const params = await searchParams;
   const filters = parseActivityFilters(params);
   const notice = listNotice(params);
-  const [activities, companies, contacts, leads, opportunities] = await Promise.all([
-    prisma.activity.findMany({
-      where: buildActivityWhere(params, user),
-      orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
-      include: { user: true, company: true, contact: true, lead: true, opportunity: true },
-    }),
-    prisma.company.findMany({ where: { tenantId: user.tenantId }, orderBy: { name: "asc" } }),
-    prisma.contact.findMany({ where: { tenantId: user.tenantId }, orderBy: { lastName: "asc" } }),
-    prisma.lead.findMany({ where: { tenantId: user.tenantId }, orderBy: { title: "asc" } }),
-    prisma.opportunity.findMany({ where: { tenantId: user.tenantId }, orderBy: { title: "asc" } }),
-  ]);
+
+  const activities = await prisma.activity.findMany({
+    where: buildActivityWhere(params, user),
+    orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
+    take: 200,
+    include: { user: true, company: true, contact: true, lead: true, opportunity: true },
+  });
 
   return (
     <>
@@ -46,62 +38,38 @@ export default async function ActivitiesPage({ searchParams }: { searchParams: P
         action={<ButtonLink href="/tasks">Vai ai task</ButtonLink>}
       />
       <Notice tone={notice.tone} message={notice.message} />
-      <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
+      <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
         <Card>
           <h3 className="text-lg font-semibold">Nuova attivita</h3>
+          <p className="mt-1 text-sm text-slate-500">Per collegare a un&apos;azienda crea l&apos;attivita dalla scheda azienda.</p>
           <form action={createActivity} className="mt-4 grid gap-3">
-            <select name="type" defaultValue={ActivityType.NOTE}>
-              {Object.values(ActivityType).map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-            <input name="subject" placeholder="Soggetto attivita" required />
-            <textarea name="body" placeholder="Descrizione" rows={3} />
-            <label className="grid gap-1">
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Tipo
+              <select name="type" defaultValue={ActivityType.NOTE}>
+                {Object.values(ActivityType).map((type) => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Soggetto
+              <input name="subject" placeholder="Soggetto attivita" required />
+            </label>
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Note
+              <textarea name="body" placeholder="Descrizione opzionale" rows={3} />
+            </label>
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
               Data e ora
               <input name="occurredAt" type="datetime-local" />
             </label>
-            <select name="companyId" defaultValue="">
-              <option value="">Nessuna azienda</option>
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                </option>
-              ))}
-            </select>
-            <select name="contactId" defaultValue="">
-              <option value="">Nessun contatto</option>
-              {contacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>
-                  {contact.firstName} {contact.lastName}
-                </option>
-              ))}
-            </select>
-            <select name="leadId" defaultValue="">
-              <option value="">Nessun lead</option>
-              {leads.map((lead) => (
-                <option key={lead.id} value={lead.id}>
-                  {lead.title}
-                </option>
-              ))}
-            </select>
-            <select name="opportunityId" defaultValue="">
-              <option value="">Nessuna opportunita</option>
-              {opportunities.map((opportunity) => (
-                <option key={opportunity.id} value={opportunity.id}>
-                  {opportunity.title}
-                </option>
-              ))}
-            </select>
             <SubmitButton label="Crea attivita" />
           </form>
         </Card>
 
         <div className="space-y-6">
           <Card>
-            <form className="grid gap-3 xl:grid-cols-[1fr_150px_180px_150px_auto_auto] xl:items-end">
+            <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Cerca
                 <input name="q" defaultValue={filters.q ?? ""} placeholder="Soggetto, note..." />
@@ -111,9 +79,7 @@ export default async function ActivitiesPage({ searchParams }: { searchParams: P
                 <select name="type" defaultValue={filters.type ?? ""}>
                   <option value="">Tutti</option>
                   {Object.values(ActivityType).map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
+                    <option key={type} value={type}>{type}</option>
                   ))}
                 </select>
               </label>
@@ -134,9 +100,10 @@ export default async function ActivitiesPage({ searchParams }: { searchParams: P
                   <option value="opportunity">Opportunita</option>
                 </select>
               </label>
-              <input name="entityId" placeholder="ID entita" defaultValue={filters.entityId ?? ""} />
-              <SubmitButton label="Filtra" />
-              <ButtonLink href="/activities">Reset</ButtonLink>
+              <div className="flex gap-2 sm:col-span-2 lg:col-span-4">
+                <SubmitButton label="Filtra" />
+                <ButtonLink href="/activities">Reset</ButtonLink>
+              </div>
             </form>
           </Card>
 
@@ -144,7 +111,7 @@ export default async function ActivitiesPage({ searchParams }: { searchParams: P
             <div className="flex items-center justify-between border-b border-slate-100 p-6">
               <div>
                 <h3 className="text-lg font-semibold">Cronologia attivita</h3>
-                <p className="text-sm text-slate-500">Eventi registrati e note operative.</p>
+                <p className="text-sm text-slate-500">Ultime 200 attivita registrate.</p>
               </div>
               <Badge tone="slate">{activities.length} risultati</Badge>
             </div>

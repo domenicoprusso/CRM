@@ -125,6 +125,7 @@ model Company {
   region    String?
   postalCode String?
   country   String?
+  codMeccanografico String?
   tags      String[] @default([])
   notes     String?
   createdAt DateTime @default(now())

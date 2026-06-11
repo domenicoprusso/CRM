@@ -19,7 +19,6 @@ const LIFECYCLE_LABELS: Record<string, string> = {
 function listNotice(params: SearchParamsInput) {
   if (readParam(params, "deleted") === "1") return { tone: "success" as const, message: "Contatto eliminato." };
   if (readParam(params, "error") === "not-found") return { tone: "error" as const, message: "Contatto non trovato." };
-  if (readParam(params, "error") === "invalid-company") return { tone: "error" as const, message: "Azienda non valida per questo workspace." };
   return { tone: "slate" as const, message: undefined };
 }
 
@@ -33,16 +32,9 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
   const { skip, take } = buildSkipTake(page, pageSize);
   const where = buildContactWhere(params, user);
 
-  const [contacts, total, companies, teamUsers] = await Promise.all([
-    prisma.contact.findMany({
-      where,
-      orderBy: { [sortField]: sortDir },
-      skip,
-      take,
-      include: { company: true, owner: true },
-    }),
+  const [contacts, total, teamUsers] = await Promise.all([
+    prisma.contact.findMany({ where, orderBy: { [sortField]: sortDir }, skip, take, include: { company: true, owner: true } }),
     prisma.contact.count({ where }),
-    prisma.company.findMany({ where: { tenantId: user.tenantId }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     getTeamUsers(prisma, user.tenantId),
   ]);
 
@@ -52,36 +44,56 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
     <>
       <PageHeader title="Contatti" description="Anagrafica persone, lifecycle, note interne e associazione con aziende." />
       <Notice tone={notice.tone} message={notice.message} />
-      <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
+      <div className="grid gap-6 xl:grid-cols-[380px_1fr]">
         <Card>
           <h3 className="text-lg font-semibold">Nuovo contatto</h3>
+          <p className="mt-1 text-sm text-slate-500">Per collegare a un&apos;azienda crea il contatto dalla scheda azienda.</p>
           <form action={createContact} className="mt-4 grid gap-3">
-            <div className="grid gap-3 md:grid-cols-2">
-              <input name="firstName" placeholder="Nome" required />
-              <input name="lastName" placeholder="Cognome" required />
+            <div className="grid gap-3 grid-cols-2">
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Nome
+                <input name="firstName" placeholder="Nome" required />
+              </label>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Cognome
+                <input name="lastName" placeholder="Cognome" required />
+              </label>
             </div>
-            <input name="email" type="email" placeholder="email@dominio.it" />
-            <input name="phone" placeholder="Telefono" />
-            <input name="jobTitle" placeholder="Ruolo" />
-            <select name="companyId" defaultValue="">
-              <option value="">Nessuna azienda</option>
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>{company.name}</option>
-              ))}
-            </select>
-            <select name="lifecycle" defaultValue={LeadStatus.NEW}>
-              {Object.values(LeadStatus).map((status) => (
-                <option key={status} value={status}>{LIFECYCLE_LABELS[status] ?? status}</option>
-              ))}
-            </select>
-            <input name="tags" placeholder="Tag separati da virgola" />
-            <textarea name="notes" placeholder="Note interne" rows={4} />
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Email
+              <input name="email" type="email" placeholder="email@dominio.it" />
+            </label>
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Telefono
+              <input name="phone" placeholder="Telefono" />
+            </label>
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Ruolo
+              <input name="jobTitle" placeholder="Responsabile IT, Dirigente..." />
+            </label>
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Lifecycle
+              <select name="lifecycle" defaultValue={LeadStatus.NEW}>
+                {Object.values(LeadStatus).map((s) => (
+                  <option key={s} value={s}>{LIFECYCLE_LABELS[s] ?? s}</option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Tag
+              <input name="tags" placeholder="Tag separati da virgola" />
+            </label>
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Note
+              <textarea name="notes" placeholder="Note interne" rows={3} />
+            </label>
             <SubmitButton label="Crea contatto" />
           </form>
         </Card>
+
         <div className="space-y-6">
           <Card>
-            <form className="grid gap-3 lg:grid-cols-[1fr_170px_180px_160px_200px_auto_auto] lg:items-end">
+            <form className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 items-end">
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Cerca
                 <input name="q" defaultValue={filters.q ?? ""} placeholder="Nome, email, azienda..." />
@@ -90,23 +102,14 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
                 Lifecycle
                 <select name="lifecycle" defaultValue={filters.lifecycle ?? ""}>
                   <option value="">Tutti</option>
-                  {Object.values(LeadStatus).map((status) => (
-                    <option key={status} value={status}>{LIFECYCLE_LABELS[status] ?? status}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Azienda
-                <select name="companyId" defaultValue={filters.companyId ?? ""}>
-                  <option value="">Tutte</option>
-                  {companies.map((company) => (
-                    <option key={company.id} value={company.id}>{company.name}</option>
+                  {Object.values(LeadStatus).map((s) => (
+                    <option key={s} value={s}>{LIFECYCLE_LABELS[s] ?? s}</option>
                   ))}
                 </select>
               </label>
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Tag
-                <input name="tag" defaultValue={readParam(params, "tag") ?? ""} placeholder="Scuole" />
+                <input name="tag" defaultValue={readParam(params, "tag") ?? ""} placeholder="Tag" />
               </label>
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Responsabile
@@ -118,10 +121,13 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
                   ))}
                 </select>
               </label>
-              <SubmitButton label="Filtra" />
-              <ButtonLink href="/contacts">Reset</ButtonLink>
+              <div className="flex gap-2 col-span-2 sm:col-span-1">
+                <SubmitButton label="Filtra" className="flex-1" />
+                <ButtonLink href="/contacts">Reset</ButtonLink>
+              </div>
             </form>
           </Card>
+
           <Card className="overflow-hidden p-0">
             <div className="flex items-center justify-between gap-4 border-b border-slate-100 px-6 py-4">
               <h3 className="text-lg font-semibold">Rubrica</h3>
@@ -157,7 +163,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
                         <td className="px-6 py-4">
                           {contact.company
                             ? <Link href={`/companies/${contact.company.id}`} className="text-brand-700 hover:text-brand-900">{contact.company.name}</Link>
-                            : "N/D"}
+                            : <span className="text-slate-400">N/D</span>}
                         </td>
                         <td className="px-6 py-4">
                           <Badge>{LIFECYCLE_LABELS[contact.lifecycle] ?? contact.lifecycle}</Badge>

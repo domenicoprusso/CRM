@@ -7,16 +7,14 @@ import { readParam, type SearchParamsInput } from "@/lib/crm-filters";
 import { buildOpportunityWhere, parseOpportunityFilters } from "@/lib/opportunity-filters";
 import { parsePaginationParams, buildSkipTake, buildPaginationMeta, parseSort } from "@/lib/pagination";
 import { getTagSuggestions, getProjectSuggestions, getTeamUsers, projectLabel } from "@/lib/team";
-
-const OPP_SORT_FIELDS = ["updatedAt", "title", "createdAt", "value"] as const;
 import { ensureDefaultPipelineStages } from "@/lib/pipeline";
 import { prisma } from "@/lib/prisma";
+
+const OPP_SORT_FIELDS = ["updatedAt", "title", "createdAt", "value"] as const;
 
 function listNotice(params: SearchParamsInput) {
   if (readParam(params, "deleted") === "1") return { tone: "success" as const, message: "Opportunita eliminata." };
   if (readParam(params, "error") === "not-found") return { tone: "error" as const, message: "Opportunita non trovata." };
-  if (readParam(params, "error") === "invalid-company") return { tone: "error" as const, message: "Azienda non valida per questo workspace." };
-  if (readParam(params, "error") === "invalid-contact") return { tone: "error" as const, message: "Contatto non valido per questo workspace." };
   return { tone: "slate" as const, message: undefined };
 }
 
@@ -37,17 +35,12 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
   const { skip, take } = buildSkipTake(page, pageSize);
   const where = buildOpportunityWhere(params, user);
 
-  const [opportunities, total, companies, contacts, teamUsers, tagSuggestions, projectSuggestions] = await Promise.all([
+  const [opportunities, total, teamUsers, tagSuggestions, projectSuggestions] = await Promise.all([
     prisma.opportunity.findMany({
-      where,
-      orderBy: { [sortField]: sortDir },
-      skip,
-      take,
-      include: { company: true, contact: true, owner: true, stage: true },
+      where, orderBy: { [sortField]: sortDir }, skip, take,
+      include: { company: true, owner: true, stage: true },
     }),
     prisma.opportunity.count({ where }),
-    prisma.company.findMany({ where: { tenantId: user.tenantId }, orderBy: { name: "asc" } }),
-    prisma.contact.findMany({ where: { tenantId: user.tenantId }, orderBy: { lastName: "asc" } }),
     getTeamUsers(prisma, user.tenantId),
     getTagSuggestions(prisma, user.tenantId),
     getProjectSuggestions(prisma, user.tenantId),
@@ -62,44 +55,51 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
         action={<ButtonLink href="/pipeline" variant="primary">Apri pipeline</ButtonLink>}
       />
       <Notice tone={notice.tone} message={notice.message} />
-      <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
+      <div className="grid gap-6 xl:grid-cols-[380px_1fr]">
         <Card>
           <h3 className="text-lg font-semibold">Nuova opportunita</h3>
+          <p className="mt-1 text-sm text-slate-500">Per collegare a un&apos;azienda crea l&apos;opportunita dalla scheda azienda.</p>
           <form action={createOpportunity} className="mt-4 grid gap-3">
-            <input name="title" placeholder="Titolo opportunita" required />
-            <div className="grid gap-3 md:grid-cols-2">
-              <input name="value" type="number" min="0" step="0.01" placeholder="Valore" required />
-              <input name="probability" type="number" min="0" max="100" defaultValue={stages[0]?.probability ?? 20} placeholder="Probabilita" />
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Titolo
+              <input name="title" placeholder="Titolo opportunita" required />
+            </label>
+            <div className="grid gap-3 grid-cols-2">
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Valore
+                <input name="value" type="number" min="0" step="0.01" placeholder="EUR" required />
+              </label>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Probabilita %
+                <input name="probability" type="number" min="0" max="100" defaultValue={stages[0]?.probability ?? 20} />
+              </label>
             </div>
-            <input name="expectedCloseDate" type="date" />
-            <select name="stageId" defaultValue={stages[0]?.id ?? ""}>
-              {stages.map((stage) => (
-                <option key={stage.id} value={stage.id}>{stage.name}</option>
-              ))}
-            </select>
-            <select name="companyId" defaultValue="">
-              <option value="">Nessuna azienda</option>
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>{company.name}</option>
-              ))}
-            </select>
-            <select name="contactId" defaultValue="">
-              <option value="">Nessun contatto</option>
-              {contacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>{contact.firstName} {contact.lastName}</option>
-              ))}
-            </select>
-            <textarea name="notes" placeholder="Note interne" rows={4} />
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Stage
+              <select name="stageId" defaultValue={stages[0]?.id ?? ""}>
+                {stages.map((stage) => (
+                  <option key={stage.id} value={stage.id}>{stage.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Data chiusura prevista
+              <input name="expectedCloseDate" type="date" />
+            </label>
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Note
+              <textarea name="notes" placeholder="Note interne" rows={3} />
+            </label>
             <SubmitButton label="Crea opportunita" />
           </form>
         </Card>
 
         <div className="space-y-6">
           <Card>
-            <form className="grid gap-3 xl:grid-cols-[1fr_150px_170px_150px_150px_200px_auto_auto] xl:items-end">
+            <form className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 items-end">
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Cerca
-                <input name="q" defaultValue={filters.q ?? ""} placeholder="Titolo, azienda, contatto..." />
+                <input name="q" defaultValue={filters.q ?? ""} placeholder="Titolo, azienda..." />
               </label>
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Stato
@@ -121,14 +121,14 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
               </label>
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Tag
-                <input name="tag" defaultValue={readParam(params, "tag") ?? ""} placeholder="Scuole" list="opp-filter-tags" />
+                <input name="tag" defaultValue={readParam(params, "tag") ?? ""} placeholder="Tag" list="opp-filter-tags" />
                 <datalist id="opp-filter-tags">
                   {tagSuggestions.map((t) => <option key={t} value={t} />)}
                 </datalist>
               </label>
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Progetto
-                <input name="project" defaultValue={readParam(params, "project") ?? ""} placeholder="Scuole Roma" list="opp-filter-projects" />
+                <input name="project" defaultValue={readParam(params, "project") ?? ""} placeholder="Progetto" list="opp-filter-projects" />
                 <datalist id="opp-filter-projects">
                   {projectSuggestions.map((p) => <option key={p.slug} value={p.slug} />)}
                 </datalist>
@@ -143,15 +143,17 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
                   ))}
                 </select>
               </label>
-              <SubmitButton label="Filtra" />
-              <ButtonLink href="/opportunities">Reset</ButtonLink>
+              <div className="flex gap-2 col-span-2 sm:col-span-1">
+                <SubmitButton label="Filtra" className="flex-1" />
+                <ButtonLink href="/opportunities">Reset</ButtonLink>
+              </div>
             </form>
           </Card>
 
           <Card className="overflow-hidden p-0">
-            <div className="flex items-center justify-between border-b border-slate-100 p-6">
+            <div className="flex items-center justify-between gap-4 border-b border-slate-100 px-6 py-4">
               <h3 className="text-lg font-semibold">Deal registrati</h3>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 <ResultsCount meta={meta} />
                 <PageSizeSelector meta={meta} params={params} />
               </div>
@@ -174,23 +176,21 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {opportunities.map((opportunity) => {
-                      const projectTags = (opportunity.company?.tags ?? [])
-                        .filter((t) => t.startsWith("project:"))
-                        .slice(0, 2);
+                    {opportunities.map((opp) => {
+                      const projectTags = (opp.company?.tags ?? []).filter((t) => t.startsWith("project:")).slice(0, 2);
                       return (
-                        <tr key={opportunity.id} className="hover:bg-slate-50">
+                        <tr key={opp.id} className="hover:bg-slate-50">
                           <td className="px-6 py-4 font-semibold text-slate-950">
-                            <Link href={`/opportunities/${opportunity.id}`} className="text-brand-700 hover:text-brand-900">
-                              {opportunity.title}
+                            <Link href={`/opportunities/${opp.id}`} className="text-brand-700 hover:text-brand-900">
+                              {opp.title}
                             </Link>
-                            <p className="font-normal text-slate-500">{opportunity.company?.name ?? opportunity.contact?.lastName ?? "N/D"}</p>
+                            <p className="font-normal text-slate-500">{opp.company?.name ?? "N/D"}</p>
                           </td>
                           <td className="px-6 py-4">
-                            <Badge tone={stageTone(opportunity.stage)}>{opportunity.stage.name}</Badge>
+                            <Badge tone={stageTone(opp.stage)}>{opp.stage.name}</Badge>
                           </td>
-                          <td className="px-6 py-4">EUR {opportunity.value.toString()}</td>
-                          <td className="px-6 py-4">{opportunity.probability}%</td>
+                          <td className="px-6 py-4">EUR {opp.value.toString()}</td>
+                          <td className="px-6 py-4">{opp.probability}%</td>
                           <td className="px-6 py-4">
                             <div className="flex flex-wrap gap-1">
                               {projectTags.length > 0
@@ -198,7 +198,7 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
                                 : <span className="text-slate-400">-</span>}
                             </div>
                           </td>
-                          <td className="px-6 py-4">{opportunity.owner?.name ?? "N/D"}</td>
+                          <td className="px-6 py-4">{opp.owner?.name ?? "N/D"}</td>
                         </tr>
                       );
                     })}

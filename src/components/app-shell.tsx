@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BadgeDollarSign, BarChart3, Building2, KanbanSquare, ListTodo, LogOut, Sun, Target, Upload, Users, UsersRound } from "lucide-react";
+import { BadgeDollarSign, BarChart3, Building2, ChevronLeft, ChevronRight, KanbanSquare, ListTodo, LogOut, Menu, Sun, Target, Upload, Users, UsersRound, X } from "lucide-react";
 import { clsx } from "clsx";
+import { useState, useEffect } from "react";
 import type { Role } from "@prisma/client";
 import { NotificationBell } from "@/components/notification-bell";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const navigation = [
   { href: "/dashboard", label: "My Day", icon: Sun, roles: null },
@@ -43,57 +45,153 @@ function getPageTitle(pathname: string): string {
 export function AppShell({ children, user }: { children: React.ReactNode; user: { id: string; tenantId: string; name: string; email: string; role: Role } }) {
   const pathname = usePathname();
   const pageTitle = getPageTitle(pathname);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("sidebar-collapsed");
+    if (saved === "true") setCollapsed(true);
+  }, []);
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      localStorage.setItem("sidebar-collapsed", String(!prev));
+      return !prev;
+    });
+  };
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  const navItems = navigation.filter((item) => !item.roles || item.roles.includes(user.role));
+
+  const NavLinks = ({ onClick }: { onClick?: () => void }) => (
+    <nav className="space-y-1">
+      {navItems.map((item) => {
+        const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={onClick}
+            title={collapsed ? item.label : undefined}
+            className={clsx(
+              "flex items-center gap-3 rounded-2xl border-l-4 px-3 py-3 text-sm font-medium transition-colors",
+              collapsed && "justify-center px-2",
+              isActive
+                ? "border-l-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400"
+                : "border-l-transparent text-slate-700 hover:bg-brand-50 hover:text-brand-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-brand-400",
+            )}
+          >
+            <item.icon className="h-5 w-5 shrink-0" />
+            {!collapsed && item.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+
+  const sidebarW = collapsed ? "w-16" : "w-72";
+  const mainPl = collapsed ? "lg:pl-16" : "lg:pl-72";
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-slate-200 bg-white/90 p-6 backdrop-blur lg:block">
-        <div className="mb-10">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo_bitcall.png" alt="BitCall" className="h-20 w-auto object-contain" />
-          <p className="mt-3 text-sm text-slate-500">Workspace scalabile per vendite, supporto e customer success.</p>
+    <div className="flex min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950">
+      {/* Sidebar desktop */}
+      <aside className={clsx(
+        "fixed inset-y-0 left-0 hidden border-r border-slate-200 bg-white/90 backdrop-blur transition-all duration-300 dark:border-slate-700 dark:bg-slate-900/90 lg:flex lg:flex-col",
+        sidebarW,
+      )}>
+        <div className={clsx("flex shrink-0 items-center py-6", collapsed ? "justify-center px-3" : "px-6")}>
+          {!collapsed ? (
+            <div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo_bitcall.png" alt="BitCall" className="h-16 w-auto object-contain" />
+              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">CRM — vendite & customer success</p>
+            </div>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src="/logo_bitcall.png" alt="BitCall" className="h-8 w-auto object-contain" />
+          )}
         </div>
-        <nav className="space-y-1">
-          {navigation.filter((item) => !item.roles || item.roles.includes(user.role)).map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={clsx(
-                  "flex items-center gap-3 rounded-2xl border-l-4 px-3 py-3 text-sm font-medium transition-colors",
-                  isActive
-                    ? "border-l-brand-600 bg-brand-50 text-brand-700"
-                    : "border-l-transparent text-slate-700 hover:bg-brand-50 hover:text-brand-700",
-                )}
-              >
-                <item.icon className="h-5 w-5 shrink-0" />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
+
+        <div className="flex-1 overflow-y-auto px-2 py-2">
+          <NavLinks />
+        </div>
+
+        <div className="shrink-0 border-t border-slate-200 p-2 dark:border-slate-700">
+          <button
+            onClick={toggleCollapsed}
+            title={collapsed ? "Espandi sidebar" : "Comprimi sidebar"}
+            className="flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          >
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <><ChevronLeft className="h-4 w-4" /><span>Comprimi</span></>}
+          </button>
+        </div>
       </aside>
-      <main className="lg:pl-72">
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-white/85 px-4 py-4 backdrop-blur md:px-8">
-          <div>
-            <p className="text-xs uppercase tracking-[0.25em] text-slate-400">Professional CRM</p>
-            <h1 className="text-xl font-semibold text-slate-950">{pageTitle}</h1>
+
+      {/* Overlay mobile */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Sidebar mobile */}
+      <aside className={clsx(
+        "fixed inset-y-0 left-0 z-50 w-72 border-r border-slate-200 bg-white p-6 shadow-2xl transition-transform duration-300 dark:border-slate-700 dark:bg-slate-900 lg:hidden",
+        mobileOpen ? "translate-x-0" : "-translate-x-full",
+      )}>
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="absolute right-4 top-4 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+          aria-label="Chiudi menu"
+        >
+          <X className="h-5 w-5" />
+        </button>
+        <div className="mb-8 mt-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo_bitcall.png" alt="BitCall" className="h-16 w-auto object-contain" />
+        </div>
+        <NavLinks onClick={() => setMobileOpen(false)} />
+      </aside>
+
+      {/* Main */}
+      <div className={clsx("flex min-w-0 flex-1 flex-col transition-all duration-300", mainPl)}>
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-white/85 px-4 py-4 backdrop-blur dark:border-slate-700 dark:bg-slate-900/85 md:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="shrink-0 rounded-xl border border-slate-200 bg-white p-2 text-slate-700 hover:border-brand-200 hover:text-brand-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:text-brand-400 lg:hidden"
+              aria-label="Apri menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <div className="min-w-0">
+              <p className="text-xs uppercase tracking-[0.25em] text-slate-400 dark:text-slate-500">Professional CRM</p>
+              <h1 className="truncate text-xl font-semibold text-slate-950 dark:text-slate-100">{pageTitle}</h1>
+            </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex shrink-0 items-center gap-3">
+            <ThemeToggle />
             <NotificationBell tenantId={user.tenantId} userId={user.id} />
             <div className="hidden text-right sm:block">
-              <p className="text-sm font-semibold text-slate-900">{user.name}</p>
-              <p className="text-xs text-slate-500">{user.role.toLowerCase()} - {user.email}</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{user.name}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{user.role.toLowerCase()}</p>
             </div>
             <form action="/api/auth/logout" method="post">
-              <button className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:border-brand-200 hover:text-brand-700">
-                <LogOut className="h-4 w-4" /> Logout
+              <button className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:border-brand-200 hover:text-brand-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-brand-500 dark:hover:text-brand-400">
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline">Logout</span>
               </button>
             </form>
           </div>
         </header>
-        <div className="px-4 py-6 md:px-8">{children}</div>
-      </main>
+        <div className="min-w-0 overflow-x-auto px-4 py-6 md:px-6">
+          {children}
+        </div>
+      </div>
     </div>
   );
 }

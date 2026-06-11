@@ -28,7 +28,8 @@ export async function updateCompany(formData: FormData) {
   if (!before) redirect("/companies?error=not-found");
 
   const parsed = companySchema.parse(Object.fromEntries(formData));
-  const updated = await prisma.company.updateMany({ where: { id, tenantId: user.tenantId }, data: parsed });
+  const codMeccanografico = (formData.get("codMeccanografico") as string)?.trim() || null;
+  const updated = await prisma.company.updateMany({ where: { id, tenantId: user.tenantId }, data: { ...parsed, codMeccanografico } });
   if (updated.count === 0) redirect("/companies?error=not-found");
   const company = await prisma.company.findFirst({ where: { id, tenantId: user.tenantId } });
   if (!company) redirect("/companies?error=not-found");
