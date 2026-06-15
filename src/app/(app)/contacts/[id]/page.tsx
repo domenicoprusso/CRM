@@ -124,7 +124,7 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
               {contact.companyId ? <input type="hidden" name="companyId" value={contact.companyId} /> : null}
               <input type="hidden" name="redirectTo" value={`/contacts/${contact.id}?task_created=1`} />
               <input name="title" placeholder="Titolo task" required className="rounded-xl border border-slate-200 px-3 py-2 text-sm" />
-              <input name="dueAt" type="date" className="rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+              <input name="dueAt" type="datetime-local" className="rounded-xl border border-slate-200 px-3 py-2 text-sm" />
               <SubmitButton label="Crea task" />
             </form>
           </Card>

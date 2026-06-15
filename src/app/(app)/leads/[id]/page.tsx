@@ -104,7 +104,7 @@ export default async function LeadDetailPage({ params, searchParams }: PageProps
               </select>
               <textarea name="nota" placeholder="Nota breve (opzionale)" rows={2} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm resize-none" />
               <input name="prossima_azione" placeholder="Prossima azione (opzionale, crea un task)" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm" />
-              <input name="prossima_data" type="date" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm" />
+              <input name="prossima_data" type="datetime-local" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm" />
               <button className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-700">
                 Registra chiamata
               </button>
