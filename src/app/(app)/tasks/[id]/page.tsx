@@ -74,7 +74,7 @@ export default async function TaskDetailPage({ params, searchParams }: PageProps
               <FieldValue label="Owner" value={task.owner.name} />
               <FieldValue label="Stato" value={<TaskStatusBadge status={task.status} />} />
               <FieldValue label="Priorita" value={<TaskPriorityBadge priority={task.priority} />} />
-              <FieldValue label="Scadenza" value={dateValue(task.dueAt) || "N/D"} />
+              <FieldValue label="Scadenza" value={datetimeValue(task.dueAt) || "N/D"} />
               <FieldValue label="Promemoria" value={task.reminderAt ? task.reminderAt.toISOString() : "N/D"} />
               <FieldValue label="Completato" value={task.completedAt ? task.completedAt.toISOString() : "N/D"} />
               <FieldValue label="Azienda" value={task.company ? <Link href={`/companies/${task.company.id}`} className="text-brand-700 hover:text-brand-900">{task.company.name}</Link> : "N/D"} />
@@ -135,7 +135,7 @@ export default async function TaskDetailPage({ params, searchParams }: PageProps
                 </select>
               </div>
               <div className="grid gap-3 md:grid-cols-2">
-                <input name="dueAt" type="date" defaultValue={dateValue(task.dueAt)} />
+                <input name="dueAt" type="datetime-local" defaultValue={datetimeValue(task.dueAt)} />
                 <input name="reminderAt" type="datetime-local" defaultValue={datetimeValue(task.reminderAt)} />
               </div>
               <select name="companyId" defaultValue={task.companyId ?? ""}>

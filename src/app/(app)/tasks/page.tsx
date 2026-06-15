@@ -92,7 +92,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
             <div className="grid gap-3 md:grid-cols-2">
               <label className="grid gap-1">
                 Scadenza
-                <input name="dueAt" type="date" />
+                <input name="dueAt" type="datetime-local" />
               </label>
               <label className="grid gap-1">
                 Promemoria
