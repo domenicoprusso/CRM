@@ -8,7 +8,10 @@ import { parsePaginationParams, buildSkipTake, buildPaginationMeta, parseSort } 
 import { getTagSuggestions, getProjectSuggestions, getTeamUsers, projectLabel } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
 
-const COMPANY_SORT_FIELDS = ["updatedAt", "name", "createdAt"] as const;
+const COMPANY_SORT_FIELDS = ["updatedAt", "name", "createdAt", "lastActivityAt"] as const;
+
+const dateFormatter = new Intl.DateTimeFormat("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
+function fmt(d: Date | null) { return d ? dateFormatter.format(new Date(d)) : null; }
 
 function listNotice(params: SearchParamsInput) {
   if (readParam(params, "deleted") === "1") return { tone: "success" as const, message: "Azienda eliminata." };
@@ -26,10 +29,14 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
   const { skip, take } = buildSkipTake(page, pageSize);
   const where = buildCompanyWhere(params, user);
 
+  const orderBy = sortField === "lastActivityAt"
+    ? { lastActivityAt: { sort: sortDir, nulls: "first" as const } }
+    : { [sortField]: sortDir };
+
   const [companies, total, teamUsers, tagSuggestions, projectSuggestions] = await Promise.all([
     prisma.company.findMany({
       where,
-      orderBy: { [sortField]: sortDir },
+      orderBy,
       skip,
       take,
       include: { owner: true, _count: { select: { contacts: true, leads: true } } },
@@ -117,6 +124,22 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
                   ))}
                 </select>
               </label>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Ordina per
+                <select name="sort" defaultValue={readParam(params, "sort") ?? "updatedAt"}>
+                  <option value="updatedAt">Ultima modifica</option>
+                  <option value="name">Nome</option>
+                  <option value="lastActivityAt">Ultima attività</option>
+                  <option value="createdAt">Data creazione</option>
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Direzione
+                <select name="direction" defaultValue={readParam(params, "direction") ?? "desc"}>
+                  <option value="asc">Crescente ↑</option>
+                  <option value="desc">Decrescente ↓</option>
+                </select>
+              </label>
               <div className="flex gap-2 col-span-2 sm:col-span-1">
                 <SubmitButton label="Filtra" className="flex-1" />
                 <ButtonLink href="/companies">Reset</ButtonLink>
@@ -147,6 +170,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
                       <th className="px-6 py-3">Progetto</th>
                       <th className="px-6 py-3">Contatti</th>
                       <th className="px-6 py-3">Lead</th>
+                      <th className="px-6 py-3">Ultima attività</th>
                       <th className="px-6 py-3">Owner</th>
                     </tr>
                   </thead>
@@ -181,6 +205,9 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
                           </td>
                           <td className="px-6 py-4">{company._count.contacts}</td>
                           <td className="px-6 py-4">{company._count.leads}</td>
+                          <td className="px-6 py-4 text-slate-500">
+                            {fmt(company.lastActivityAt) ?? <span className="text-slate-400 italic">Mai</span>}
+                          </td>
                           <td className="px-6 py-4">{company.owner?.name ?? "N/D"}</td>
                         </tr>
                       );

@@ -83,7 +83,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
                           <select
                             name="role"
                             defaultValue={u.role}
-                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs"
+                            className="rounded-lg border border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 px-2 py-1 text-xs"
                           >
                             {ROLES.map((role) => (
                               <option key={role} value={role}>
@@ -93,7 +93,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
                           </select>
                           <button
                             type="submit"
-                            className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                            className="rounded-lg bg-slate-100 dark:bg-slate-700 px-2 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
                           >
                             Salva
                           </button>
@@ -119,8 +119,8 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
                             type="submit"
                             className={`rounded-lg px-3 py-1 text-xs font-medium ${
                               u.isActive
-                                ? "bg-red-50 text-red-700 hover:bg-red-100"
-                                : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                ? "bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50"
+                                : "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
                             }`}
                           >
                             {u.isActive ? "Disattiva" : "Riattiva"}

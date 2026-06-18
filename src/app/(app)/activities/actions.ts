@@ -56,6 +56,25 @@ function normalizeActivityData(
   };
 }
 
+async function refreshLastActivityAt(companyId?: string | null, leadId?: string | null) {
+  const tasks: Promise<unknown>[] = [];
+  if (companyId) {
+    tasks.push(
+      prisma.activity.aggregate({ where: { companyId }, _max: { occurredAt: true } }).then((r) =>
+        prisma.company.update({ where: { id: companyId }, data: { lastActivityAt: r._max.occurredAt } })
+      )
+    );
+  }
+  if (leadId) {
+    tasks.push(
+      prisma.activity.aggregate({ where: { leadId }, _max: { occurredAt: true } }).then((r) =>
+        prisma.lead.update({ where: { id: leadId }, data: { lastActivityAt: r._max.occurredAt } })
+      )
+    );
+  }
+  await Promise.all(tasks);
+}
+
 export async function createActivity(formData: FormData) {
   const user = await requireUser("activity:write");
   const parsed = activitySchema.parse(Object.fromEntries(formData));
@@ -73,6 +92,7 @@ export async function createActivity(formData: FormData) {
     },
   });
 
+  await refreshLastActivityAt(activity.companyId, activity.leadId);
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "CREATE", entityType: "Activity", entityId: activity.id, after: activity });
   revalidatePath("/activities");
   revalidatePath("/dashboard");
@@ -104,6 +124,7 @@ export async function updateActivity(formData: FormData) {
   const activity = await prisma.activity.findFirst({ where: { id, tenantId: user.tenantId } });
   if (!activity) redirect("/activities?error=not-found");
 
+  await refreshLastActivityAt(activity.companyId, activity.leadId);
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "UPDATE", entityType: "Activity", entityId: id, before, after: activity });
   revalidatePath("/activities");
   revalidatePath("/dashboard");
@@ -130,6 +151,7 @@ export async function deleteActivity(formData: FormData) {
     redirect(`/activities/${id}?error=delete-failed`);
   }
 
+  await refreshLastActivityAt(before.companyId, before.leadId);
   await writeAuditLog({ tenantId: user.tenantId, userId: user.id, action: "DELETE", entityType: "Activity", entityId: id, before });
   revalidatePath("/activities");
   revalidatePath("/dashboard");

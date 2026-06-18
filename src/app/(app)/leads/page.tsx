@@ -9,7 +9,10 @@ import { parsePaginationParams, buildSkipTake, buildPaginationMeta, parseSort } 
 import { getTagSuggestions, getProjectSuggestions, getTeamUsers, projectLabel } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
 
-const LEAD_SORT_FIELDS = ["updatedAt", "title", "createdAt", "score"] as const;
+const LEAD_SORT_FIELDS = ["updatedAt", "title", "createdAt", "score", "lastActivityAt"] as const;
+
+const dateFormatter = new Intl.DateTimeFormat("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
+function fmt(d: Date | null) { return d ? dateFormatter.format(new Date(d)) : null; }
 
 const LEAD_STATUS_LABELS: Record<string, string> = {
   NEW: "Nuovo", CONTACTED: "Contattato", QUALIFIED: "Qualificato",
@@ -32,8 +35,12 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const { skip, take } = buildSkipTake(page, pageSize);
   const where = buildLeadWhere(params, user);
 
+  const orderBy = sortField === "lastActivityAt"
+    ? { lastActivityAt: { sort: sortDir, nulls: "first" as const } }
+    : { [sortField]: sortDir };
+
   const [leads, total, teamUsers, tagSuggestions, projectSuggestions] = await Promise.all([
-    prisma.lead.findMany({ where, orderBy: { [sortField]: sortDir }, skip, take, include: { company: true, owner: true } }),
+    prisma.lead.findMany({ where, orderBy, skip, take, include: { company: true, owner: true } }),
     prisma.lead.count({ where }),
     getTeamUsers(prisma, user.tenantId),
     getTagSuggestions(prisma, user.tenantId),
@@ -139,6 +146,23 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                   ))}
                 </select>
               </label>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Ordina per
+                <select name="sort" defaultValue={readParam(params, "sort") ?? "updatedAt"}>
+                  <option value="updatedAt">Ultima modifica</option>
+                  <option value="lastActivityAt">Ultima attività</option>
+                  <option value="score">Score</option>
+                  <option value="title">Titolo</option>
+                  <option value="createdAt">Data creazione</option>
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Direzione
+                <select name="direction" defaultValue={readParam(params, "direction") ?? "desc"}>
+                  <option value="asc">Crescente ↑</option>
+                  <option value="desc">Decrescente ↓</option>
+                </select>
+              </label>
               <div className="flex gap-2 col-span-2 sm:col-span-1">
                 <SubmitButton label="Filtra" className="flex-1" />
                 <ButtonLink href="/leads">Reset</ButtonLink>
@@ -167,6 +191,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                       <th className="px-6 py-3">Stato</th>
                       <th className="px-6 py-3">Score</th>
                       <th className="px-6 py-3">Valore</th>
+                      <th className="px-6 py-3">Ultima attività</th>
                       <th className="px-6 py-3">Progetto</th>
                       <th className="px-6 py-3">Owner</th>
                     </tr>
@@ -187,6 +212,9 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                           </td>
                           <td className="px-6 py-4">{lead.score}/100</td>
                           <td className="px-6 py-4">{lead.estimatedValue ? `EUR ${lead.estimatedValue}` : "N/D"}</td>
+                          <td className="px-6 py-4 text-slate-500">
+                            {fmt(lead.lastActivityAt) ?? <span className="text-slate-400 italic">Mai</span>}
+                          </td>
                           <td className="px-6 py-4">
                             <div className="flex flex-wrap gap-1">
                               {projectTags.length > 0
