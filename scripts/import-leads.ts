@@ -123,6 +123,7 @@ async function main() {
     const companyId = resolveCompany(companyName);
     const createdAt = parseDate(f[11]) ?? now;
     const notes = clean(f[35]) ?? undefined; // job title / note campo libero
+    const vatNumber = clean(f[27]);
 
     if (!companyId) noCompany++;
 
@@ -135,6 +136,7 @@ async function main() {
       source: source && !source.startsWith("Importazione") ? source : "TeamSystem",
       status,
       score: 0,
+      vatNumber: vatNumber ?? null,
       notes: notes ?? null,
       tags: [] as string[],
       updatedAt: now,

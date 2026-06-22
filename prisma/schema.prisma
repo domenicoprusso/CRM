@@ -194,6 +194,7 @@ model Lead {
   score             Int        @default(0)
   estimatedValue    Decimal?   @db.Decimal(12, 2)
   expectedCloseDate DateTime?
+  vatNumber         String?
   tags              String[]   @default([])
   notes             String?
   lastActivityAt    DateTime?

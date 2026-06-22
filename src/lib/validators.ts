@@ -63,6 +63,7 @@ export const leadSchema = z.object({
   title: z.string().trim().min(2, "Il titolo lead e obbligatorio"),
   externalId: optionalString,
   source: optionalString,
+  vatNumber: optionalString,
   status: z.nativeEnum(LeadStatus).default(LeadStatus.NEW),
   score: z.coerce.number().int().min(0).max(100).default(0),
   estimatedValue: optionalDecimal,

@@ -74,6 +74,7 @@ export default async function LeadDetailPage({ params, searchParams }: PageProps
               <FieldValue label="Owner" value={lead.owner?.name ?? "N/D"} />
               <FieldValue label="Stato" value={<Badge>{lead.status}</Badge>} />
               <FieldValue label="Score" value={`${lead.score}/100`} />
+              <FieldValue label="Partita IVA" value={lead.vatNumber ?? "N/D"} />
               <FieldValue label="Valore stimato" value={lead.estimatedValue ? `EUR ${lead.estimatedValue}` : "N/D"} />
               <FieldValue label="Fonte" value={lead.source ?? "N/D"} />
               <FieldValue label="Chiusura prevista" value={dateValue(lead.expectedCloseDate) || "N/D"} />
@@ -116,6 +117,7 @@ export default async function LeadDetailPage({ params, searchParams }: PageProps
             <form action={updateLead} className="mt-4 grid gap-3">
               <input type="hidden" name="id" value={lead.id} />
               <input name="title" defaultValue={lead.title} placeholder="Titolo lead" required />
+              <input name="vatNumber" defaultValue={lead.vatNumber ?? ""} placeholder="Partita IVA" />
               <input name="source" defaultValue={lead.source ?? ""} placeholder="Fonte" />
               <select name="status" defaultValue={lead.status}>
                 {Object.values(LeadStatus).map((status) => (
