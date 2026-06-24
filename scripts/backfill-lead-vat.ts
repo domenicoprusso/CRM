@@ -45,7 +45,7 @@ async function main() {
   for (const line of lines) {
     const f = parseRow(line);
     const externalId = clean(f[0]);
-    const vatNumber = clean(f[27]);
+    const vatNumber = clean(f[26]) ?? clean(f[27]); // f[26]=P.IVA, f[27]=CF (spesso uguale per SNC)
     if (!externalId || !vatNumber) continue;
 
     const leadId = existingMap.get(externalId);

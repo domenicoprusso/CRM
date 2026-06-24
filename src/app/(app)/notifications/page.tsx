@@ -1,9 +1,9 @@
 import { ButtonLink, PageHeader } from "@/components/ui";
-import { NotificationPanel } from "@/components/notification-panel";
 import { requireUser } from "@/lib/auth";
 import { buildNotificationStorageKey } from "@/lib/notification-state";
 import { getNotificationSnapshot } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
+import { NotificationClientView } from "./client-view";
 
 export default async function NotificationsPage() {
   const user = await requireUser("dashboard:read");
@@ -16,7 +16,7 @@ export default async function NotificationsPage() {
         description="Task scaduti, task in scadenza oggi, follow-up di oggi e opportunita senza next action."
         action={<ButtonLink href="/dashboard" variant="primary">Torna alla dashboard</ButtonLink>}
       />
-      <NotificationPanel snapshot={snapshot} storageKey={buildNotificationStorageKey(user.tenantId, user.id)} variant="center" />
+      <NotificationClientView snapshot={snapshot} storageKey={buildNotificationStorageKey(user.tenantId, user.id)} />
     </>
   );
 }

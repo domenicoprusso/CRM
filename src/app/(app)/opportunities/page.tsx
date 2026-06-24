@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/auth";
 import { readParam, type SearchParamsInput } from "@/lib/crm-filters";
 import { buildOpportunityWhere, parseOpportunityFilters } from "@/lib/opportunity-filters";
 import { parsePaginationParams, buildSkipTake, buildPaginationMeta, parseSort } from "@/lib/pagination";
-import { getTagSuggestions, getProjectSuggestions, getTeamUsers, projectLabel } from "@/lib/team";
+import { getTagsAndProjects, getTeamUsers, projectLabel } from "@/lib/team";
 import { ensureDefaultPipelineStages } from "@/lib/pipeline";
 import { prisma } from "@/lib/prisma";
 
@@ -35,15 +35,14 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
   const { skip, take } = buildSkipTake(page, pageSize);
   const where = buildOpportunityWhere(params, user);
 
-  const [opportunities, total, teamUsers, tagSuggestions, projectSuggestions] = await Promise.all([
+  const [opportunities, total, teamUsers, { tagSuggestions, projectSuggestions }] = await Promise.all([
     prisma.opportunity.findMany({
       where, orderBy: { [sortField]: sortDir }, skip, take,
       include: { company: true, owner: true, stage: true },
     }),
     prisma.opportunity.count({ where }),
     getTeamUsers(prisma, user.tenantId),
-    getTagSuggestions(prisma, user.tenantId),
-    getProjectSuggestions(prisma, user.tenantId),
+    getTagsAndProjects(prisma, user.tenantId),
   ]);
   const meta = buildPaginationMeta(total, page, pageSize);
 

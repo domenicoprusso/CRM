@@ -6,7 +6,7 @@ import { PaginationControls, PageSizeSelector, ResultsCount } from "@/components
 import { requireUser } from "@/lib/auth";
 import { buildLeadWhere, parseLeadFilters, readParam, type SearchParamsInput } from "@/lib/crm-filters";
 import { parsePaginationParams, buildSkipTake, buildPaginationMeta, parseSort } from "@/lib/pagination";
-import { getTagSuggestions, getProjectSuggestions, getTeamUsers, projectLabel } from "@/lib/team";
+import { getTagsAndProjects, getTeamUsers, projectLabel } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
 
 const LEAD_SORT_FIELDS = ["updatedAt", "title", "createdAt", "score", "lastActivityAt"] as const;
@@ -39,12 +39,11 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     ? { lastActivityAt: { sort: sortDir, nulls: "first" as const } }
     : { [sortField]: sortDir };
 
-  const [leads, total, teamUsers, tagSuggestions, projectSuggestions] = await Promise.all([
+  const [leads, total, teamUsers, { tagSuggestions, projectSuggestions }] = await Promise.all([
     prisma.lead.findMany({ where, orderBy, skip, take, include: { company: true, owner: true } }),
     prisma.lead.count({ where }),
     getTeamUsers(prisma, user.tenantId),
-    getTagSuggestions(prisma, user.tenantId),
-    getProjectSuggestions(prisma, user.tenantId),
+    getTagsAndProjects(prisma, user.tenantId),
   ]);
   const meta = buildPaginationMeta(total, page, pageSize);
 

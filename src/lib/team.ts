@@ -34,48 +34,27 @@ export async function getAllTeamUsers(
   });
 }
 
-/** Distinct free tags (non-project) across all taggable entities */
-export async function getTagSuggestions(
+async function fetchAllTags(
   prismaClient: PrismaClient | typeof prisma,
   tenantId: string,
 ): Promise<string[]> {
   const results = await prismaClient.$queryRaw<Array<{ tag: string }>>`
     SELECT DISTINCT unnest(tags) AS tag
     FROM (
-      SELECT tags FROM "Company" WHERE "tenantId" = ${tenantId}
+      SELECT tags FROM "Company" WHERE "tenantId" = ${tenantId} AND array_length(tags, 1) > 0
       UNION ALL
-      SELECT tags FROM "Contact" WHERE "tenantId" = ${tenantId}
+      SELECT tags FROM "Contact" WHERE "tenantId" = ${tenantId} AND array_length(tags, 1) > 0
       UNION ALL
-      SELECT tags FROM "Lead"    WHERE "tenantId" = ${tenantId}
+      SELECT tags FROM "Lead"    WHERE "tenantId" = ${tenantId} AND array_length(tags, 1) > 0
     ) t
-    WHERE array_length(tags, 1) > 0
     ORDER BY tag
   `;
-  return results
-    .map((r) => r.tag)
-    .filter((t) => t && !t.startsWith("project:"));
+  return results.map((r) => r.tag).filter(Boolean);
 }
 
-/** Distinct project slugs → human-readable labels */
-export async function getProjectSuggestions(
-  prismaClient: PrismaClient | typeof prisma,
-  tenantId: string,
-): Promise<Array<{ slug: string; label: string }>> {
-  const results = await prismaClient.$queryRaw<Array<{ tag: string }>>`
-    SELECT DISTINCT unnest(tags) AS tag
-    FROM (
-      SELECT tags FROM "Company" WHERE "tenantId" = ${tenantId}
-      UNION ALL
-      SELECT tags FROM "Contact" WHERE "tenantId" = ${tenantId}
-      UNION ALL
-      SELECT tags FROM "Lead"    WHERE "tenantId" = ${tenantId}
-    ) t
-    WHERE array_length(tags, 1) > 0
-    ORDER BY tag
-  `;
-  return results
-    .map((r) => r.tag)
-    .filter((t) => t?.startsWith("project:"))
+function tagsToProjects(tags: string[]): Array<{ slug: string; label: string }> {
+  return tags
+    .filter((t) => t.startsWith("project:"))
     .map((t) => ({
       slug: t.replace("project:", ""),
       label: t
@@ -84,6 +63,35 @@ export async function getProjectSuggestions(
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
         .join(" "),
     }));
+}
+
+/** All distinct tags split into free tags and project suggestions — single DB query */
+export async function getTagsAndProjects(
+  prismaClient: PrismaClient | typeof prisma,
+  tenantId: string,
+): Promise<{ tagSuggestions: string[]; projectSuggestions: Array<{ slug: string; label: string }> }> {
+  const all = await fetchAllTags(prismaClient, tenantId);
+  return {
+    tagSuggestions: all.filter((t) => !t.startsWith("project:")),
+    projectSuggestions: tagsToProjects(all),
+  };
+}
+
+/** @deprecated Use getTagsAndProjects to avoid a second DB round-trip */
+export async function getTagSuggestions(
+  prismaClient: PrismaClient | typeof prisma,
+  tenantId: string,
+): Promise<string[]> {
+  const tags = await fetchAllTags(prismaClient, tenantId);
+  return tags.filter((t) => !t.startsWith("project:"));
+}
+
+/** @deprecated Use getTagsAndProjects to avoid a second DB round-trip */
+export async function getProjectSuggestions(
+  prismaClient: PrismaClient | typeof prisma,
+  tenantId: string,
+): Promise<Array<{ slug: string; label: string }>> {
+  return tagsToProjects(await fetchAllTags(prismaClient, tenantId));
 }
 
 /** Human-readable label from a project tag */

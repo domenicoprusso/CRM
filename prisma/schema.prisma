@@ -145,6 +145,8 @@ model Company {
   @@index([tenantId, region])
   @@index([tenantId, province])
   @@index([tenantId, postalCode])
+  @@index([tenantId, updatedAt])
+  @@index([tenantId, createdAt])
   @@index([tenantId, lastActivityAt])
   @@unique([tenantId, externalId])
 }
@@ -213,6 +215,9 @@ model Lead {
   @@index([tenantId, status])
   @@index([tenantId, score])
   @@index([tenantId, ownerId])
+  @@index([tenantId, companyId])
+  @@index([tenantId, updatedAt])
+  @@index([tenantId, createdAt])
   @@index([tenantId, lastActivityAt])
   @@unique([tenantId, externalId])
 }

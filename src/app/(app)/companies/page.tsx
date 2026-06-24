@@ -5,7 +5,7 @@ import { PaginationControls, PageSizeSelector, ResultsCount } from "@/components
 import { requireUser } from "@/lib/auth";
 import { buildCompanyWhere, parseCompanyFilters, readParam, type SearchParamsInput } from "@/lib/crm-filters";
 import { parsePaginationParams, buildSkipTake, buildPaginationMeta, parseSort } from "@/lib/pagination";
-import { getTagSuggestions, getProjectSuggestions, getTeamUsers, projectLabel } from "@/lib/team";
+import { getTagsAndProjects, getTeamUsers, projectLabel } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
 
 const COMPANY_SORT_FIELDS = ["updatedAt", "name", "createdAt", "lastActivityAt"] as const;
@@ -33,7 +33,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
     ? { lastActivityAt: { sort: sortDir, nulls: "first" as const } }
     : { [sortField]: sortDir };
 
-  const [companies, total, teamUsers, tagSuggestions, projectSuggestions] = await Promise.all([
+  const [companies, total, teamUsers, { tagSuggestions, projectSuggestions }] = await Promise.all([
     prisma.company.findMany({
       where,
       orderBy,
@@ -43,8 +43,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
     }),
     prisma.company.count({ where }),
     getTeamUsers(prisma, user.tenantId),
-    getTagSuggestions(prisma, user.tenantId),
-    getProjectSuggestions(prisma, user.tenantId),
+    getTagsAndProjects(prisma, user.tenantId),
   ]);
 
   const meta = buildPaginationMeta(total, page, pageSize);

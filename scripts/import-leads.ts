@@ -123,7 +123,7 @@ async function main() {
     const companyId = resolveCompany(companyName);
     const createdAt = parseDate(f[11]) ?? now;
     const notes = clean(f[35]) ?? undefined; // job title / note campo libero
-    const vatNumber = clean(f[27]);
+    const vatNumber = clean(f[26]) ?? clean(f[27]); // f[26]=P.IVA, f[27]=CF (spesso uguale per SNC)
 
     if (!companyId) noCompany++;
 
